@@ -1,0 +1,94 @@
+@model QuestionCreateViewModel
+@{
+    ViewData["Title"] = "Tambah Soal";
+    var quiz = ViewBag.Quiz as Quiz;
+}
+
+<section class="page-header">
+    <div class="container">
+        <a asp-action="Manage" asp-controller="Question" asp-route-quizId="@Model.QuizId">← Kelola Soal</a>
+        <h1>Tambah Soal Baru</h1>
+    </div>
+</section>
+
+<div class="container" style="padding:2rem 1.5rem">
+    <div class="form-card" style="max-width:700px">
+        <form asp-action="Create" asp-controller="Question" method="post" id="question-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="QuizId" />
+
+            <div class="form-group">
+                <label class="form-label">Tipe Soal</label>
+                <select asp-for="Type" class="form-control" id="question-type" onchange="updateForm()">
+                    <option value="0">Pilihan Ganda (Multiple Choice)</option>
+                    <option value="2">Essay</option>
+                    <option value="1">Benar / Salah (True-False)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Teks Soal</label>
+                <textarea asp-for="Text" class="form-control" rows="3" placeholder="Tulis pertanyaan di sini..."></textarea>
+                <span asp-validation-for="Text" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Poin</label>
+                <input asp-for="Points" type="number" class="form-control" style="max-width:120px" min="1" max="100" />
+                <span asp-validation-for="Points" class="text-danger"></span>
+            </div>
+
+            <!-- MCQ Options -->
+            <div id="options-section">
+                <label class="form-label">Pilihan Jawaban <small class="text-muted">(centang yang benar)</small></label>
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div class="option-input-row">
+                        <input type="checkbox" name="Options[@i].IsCorrect" value="true" class="form-check-input" />
+                        <input type="text" name="Options[@i].Text" class="form-control"
+                               placeholder="Pilihan @(char.ConvertFromUtf32(65 + i))" />
+                    </div>
+                }
+            </div>
+
+            <!-- True/False Options -->
+            <div id="truefalse-section" style="display:none">
+                <label class="form-label">Jawaban yang Benar</label>
+                <div style="display:flex;gap:1rem">
+                    <label class="form-check">
+                        <input type="radio" name="CorrectTrueFalse" value="true" checked class="form-check-input" />
+                        <span>Benar</span>
+                    </label>
+                    <label class="form-check">
+                        <input type="radio" name="CorrectTrueFalse" value="false" class="form-check-input" />
+                        <span>Salah</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Essay info -->
+            <div id="essay-section" style="display:none">
+                <div class="alert" style="background:#fffbeb;border:1px solid #f59e0b;color:#92400e;padding:.85rem 1.25rem;border-radius:8px">
+                    Soal essay akan dinilai secara manual oleh instruktur setelah peserta mengumpulkan.
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Simpan Soal</button>
+                <a asp-action="Manage" asp-controller="Question" asp-route-quizId="@Model.QuizId" class="btn btn-outline">Batal</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function updateForm() {
+    const type = document.getElementById('question-type').value;
+    document.getElementById('options-section').style.display = type === '0' ? 'block' : 'none';
+    document.getElementById('truefalse-section').style.display = type === '1' ? 'block' : 'none';
+    document.getElementById('essay-section').style.display = type === '2' ? 'block' : 'none';
+}
+updateForm();
+</script>
+}

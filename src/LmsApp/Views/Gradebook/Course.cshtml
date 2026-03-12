@@ -1,0 +1,48 @@
+@model GradebookViewModel
+@{
+    ViewData["Title"] = "Gradebook - " + Model.Course.Title;
+}
+
+<section class="page-header">
+    <div class="container">
+        <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.Course.Id">← @Model.Course.Title</a>
+        <h1>Gradebook</h1>
+        <p class="text-muted">@Model.Enrollments.Count peserta terdaftar</p>
+    </div>
+</section>
+
+<div class="container" style="padding: 2rem 1.5rem; overflow-x: auto;">
+    <table class="grade-table">
+        <thead>
+            <tr>
+                <th>Peserta</th>
+                @foreach (var a in Model.Assignments) { <th>@a.Title</th> }
+                @foreach (var q in Model.Quizzes) { <th>@q.Title</th> }
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var enrollment in Model.Enrollments)
+            {
+                int total = 0; int maxTotal = 0;
+                <tr>
+                    <td><strong>@enrollment.UserName</strong></td>
+                    @foreach (var a in Model.Assignments)
+                    {
+                        var sub = Model.GetSubmission(a.Id, enrollment.UserId);
+                        maxTotal += a.MaxScore;
+                        if (sub?.Score is int score) total += score;
+                        <td>@(sub?.Score?.ToString() ?? "-") / @a.MaxScore</td>
+                    }
+                    @foreach (var q in Model.Quizzes)
+                    {
+                        var attempt = Model.GetBestAttempt(q.Id, enrollment.UserId);
+                        if (attempt is not null) { maxTotal += attempt.MaxScore; total += attempt.Score; }
+                        <td>@(attempt?.Score.ToString() ?? "-")</td>
+                    }
+                    <td><strong>@total / @maxTotal</strong></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

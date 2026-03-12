@@ -1,0 +1,53 @@
+@model QuizAttempt
+@{
+    ViewData["Title"] = "Hasil Quiz";
+    double pct = Model.MaxScore > 0 ? Math.Round((double)Model.Score / Model.MaxScore * 100, 1) : 0;
+}
+
+<section class="quiz-result">
+    <div class="container">
+        <div class="result-card">
+            <div class="result-icon">@(Model.IsPassed ? "🎉" : "😔")</div>
+            <h1>@(Model.IsPassed ? "Selamat, Lulus!" : "Belum Lulus")</h1>
+            <div class="result-score">@Model.Score / @Model.MaxScore</div>
+            <p class="result-pct">@pct%</p>
+            <p class="text-muted">Nilai lulus: @Model.Quiz.PassScore%</p>
+
+            <div class="result-actions">
+                <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.Quiz.CourseId"
+                   class="btn btn-primary">Kembali ke Kursus</a>
+                @if (!Model.IsPassed && Model.AttemptNumber < Model.Quiz.MaxAttempts)
+                {
+                    <a asp-action="Details" asp-route-id="@Model.QuizId" class="btn btn-outline">Coba Lagi</a>
+                }
+            </div>
+        </div>
+
+        <!-- Review jawaban -->
+        <h2 style="margin-top:2rem">Review Jawaban</h2>
+        @foreach (var answer in Model.Answers)
+        {
+            <div class="review-card @(answer.IsCorrect ? "correct" : (answer.Question.Type == QuestionType.Essay ? "essay" : "wrong"))">
+                <p class="question-text">@answer.Question.Text</p>
+                @if (answer.Question.Type == QuestionType.Essay)
+                {
+                    <p><strong>Jawaban:</strong> @(answer.EssayAnswer ?? "-")</p>
+                    <span class="badge badge-warning">Menunggu penilaian</span>
+                }
+                else
+                {
+                    var selected = answer.Question.Options.FirstOrDefault(o => o.Id == answer.SelectedOptionId);
+                    var correct = answer.Question.Options.FirstOrDefault(o => o.IsCorrect);
+                    <p><strong>Jawaban kamu:</strong> @(selected?.Text ?? "Tidak dijawab")</p>
+                    @if (!answer.IsCorrect)
+                    {
+                        <p class="text-correct"><strong>Jawaban benar:</strong> @correct?.Text</p>
+                    }
+                    <span class="badge @(answer.IsCorrect ? "badge-success" : "badge-danger")">
+                        @(answer.IsCorrect ? $"+{answer.Question.Points} poin" : "0 poin")
+                    </span>
+                }
+            </div>
+        }
+    </div>
+</section>

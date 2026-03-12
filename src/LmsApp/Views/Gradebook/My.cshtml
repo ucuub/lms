@@ -1,0 +1,73 @@
+@model MyGradebookViewModel
+@{
+    ViewData["Title"] = "Nilai Saya - " + Model.Course.Title;
+}
+
+<section class="page-header">
+    <div class="container">
+        <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.Course.Id">← @Model.Course.Title</a>
+        <h1>Nilai Saya</h1>
+    </div>
+</section>
+
+<div class="container" style="padding: 2rem 1.5rem;">
+    <!-- Tugas -->
+    @if (Model.Assignments.Any())
+    {
+        <h2 class="section-title">Tugas</h2>
+        <div class="grade-table-wrap">
+            <table class="grade-table">
+                <thead>
+                    <tr><th>Tugas</th><th>Tenggat</th><th>Status</th><th>Nilai</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.Assignments)
+                    {
+                        var sub = a.Submissions.FirstOrDefault(s => s.UserId == Model.UserId);
+                        <tr>
+                            <td>@a.Title</td>
+                            <td>@(a.DueDate?.ToString("dd MMM yyyy") ?? "-")</td>
+                            <td>
+                                @if (sub is null) { <span class="badge badge-warning">Belum dikumpul</span> }
+                                else if (sub.Score is null) { <span class="badge badge-info">Menunggu nilai</span> }
+                                else { <span class="badge badge-success">Dinilai</span> }
+                            </td>
+                            <td><strong>@(sub?.Score?.ToString() ?? "-") / @a.MaxScore</strong></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Quiz -->
+    @if (Model.Quizzes.Any())
+    {
+        <h2 class="section-title" style="margin-top:2rem">Quiz</h2>
+        <div class="grade-table-wrap">
+            <table class="grade-table">
+                <thead>
+                    <tr><th>Quiz</th><th>Percobaan</th><th>Nilai Terbaik</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var q in Model.Quizzes)
+                    {
+                        var best = q.Attempts.Where(a => a.UserId == Model.UserId).OrderByDescending(a => a.Score).FirstOrDefault();
+                        var pct = best is not null && best.MaxScore > 0
+                            ? Math.Round((double)best.Score / best.MaxScore * 100, 1) : 0;
+                        <tr>
+                            <td>@q.Title</td>
+                            <td>@q.Attempts.Count(a => a.UserId == Model.UserId) / @q.MaxAttempts</td>
+                            <td><strong>@(best?.Score.ToString() ?? "-") / @(best?.MaxScore.ToString() ?? "-")</strong></td>
+                            <td>
+                                @if (best is null) { <span class="badge badge-warning">Belum dikerjakan</span> }
+                                else if (best.IsPassed) { <span class="badge badge-success">Lulus (@pct%)</span> }
+                                else { <span class="badge badge-danger">Belum lulus (@pct%)</span> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

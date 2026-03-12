@@ -1,4 +1,5 @@
 using LmsApp.Data;
+using LmsApp.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,10 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+
+// ── App Services ──────────────────────────────────────────────────────────────
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 
 // ── MVC ───────────────────────────────────────────────────────────────────────
 builder.Services.AddControllersWithViews();

@@ -1,0 +1,50 @@
+@model IEnumerable<CalendarEvent>
+@{
+    ViewData["Title"] = "Kalender";
+    var grouped = Model.GroupBy(e => e.EventDate.Date).OrderBy(g => g.Key);
+}
+
+<section class="page-header">
+    <div class="container">
+        <h1>📅 Kalender</h1>
+        <p class="text-muted">Deadline dan jadwal kursus kamu</p>
+    </div>
+</section>
+
+<div class="container" style="padding: 2rem 1.5rem;">
+    @if (!Model.Any())
+    {
+        <div class="empty-state"><p>Tidak ada event mendatang.</p></div>
+    }
+    else
+    {
+        @foreach (var group in grouped)
+        {
+            <div class="calendar-day">
+                <div class="calendar-date">
+                    <span class="cal-day">@group.Key.ToString("dd")</span>
+                    <span class="cal-month">@group.Key.ToString("MMM yyyy")</span>
+                </div>
+                <div class="calendar-events">
+                    @foreach (var ev in group)
+                    {
+                        <div class="calendar-event-item @ev.Type.ToString().ToLower()">
+                            <span class="event-type-dot"></span>
+                            <div>
+                                <strong>@ev.Title</strong>
+                                @if (ev.Course is not null)
+                                {
+                                    <span class="text-muted"> · @ev.Course.Title</span>
+                                }
+                                <p class="text-muted" style="font-size:0.8rem">@ev.EventDate.ToString("HH:mm")</p>
+                            </div>
+                            <span class="badge badge-@(ev.Type == CalendarEventType.Quiz ? "info" : ev.Type == CalendarEventType.Assignment ? "warning" : "success")">
+                                @ev.Type
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

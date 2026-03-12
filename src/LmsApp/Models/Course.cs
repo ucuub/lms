@@ -16,4 +16,6 @@ public class Course
     public ICollection<Enrollment> Enrollments { get; set; } = [];
     public ICollection<Assignment> Assignments { get; set; } = [];
     public ICollection<CourseModule> Modules { get; set; } = [];
+    public ICollection<Quiz> Quizzes { get; set; } = [];
+    public ICollection<Announcement> Announcements { get; set; } = [];
 }

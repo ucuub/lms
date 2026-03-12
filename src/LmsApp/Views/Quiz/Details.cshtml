@@ -1,0 +1,47 @@
+@model Quiz
+@{
+    ViewData["Title"] = Model.Title;
+    bool canAttempt = (bool)ViewBag.CanAttempt;
+    int attemptCount = (int)ViewBag.AttemptCount;
+}
+
+<section class="course-detail">
+    <div class="container">
+        <nav class="breadcrumb">
+            <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.CourseId">← @Model.Course.Title</a>
+        </nav>
+
+        <div class="quiz-header">
+            <h1>@Model.Title</h1>
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="course-description">@Model.Description</p>
+            }
+            <div class="quiz-meta">
+                <span>⏱ @Model.TimeLimitMinutes menit</span>
+                <span>❓ @Model.Questions.Count soal</span>
+                <span>🎯 Nilai lulus: @Model.PassScore%</span>
+                <span>🔄 Percobaan: @attemptCount / @Model.MaxAttempts</span>
+                @if (Model.DueDate.HasValue)
+                {
+                    <span>📅 Tenggat: @Model.DueDate.Value.ToString("dd MMM yyyy")</span>
+                }
+            </div>
+        </div>
+
+        <div class="quiz-action-card">
+            @if (canAttempt)
+            {
+                <p>Klik tombol di bawah untuk memulai quiz. Timer akan berjalan saat quiz dimulai.</p>
+                <form asp-action="Start" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary btn-lg">Mulai Quiz</button>
+                </form>
+            }
+            else
+            {
+                <div class="alert alert-error">Batas percobaan telah habis.</div>
+            }
+        </div>
+    </div>
+</section>

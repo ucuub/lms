@@ -179,6 +179,157 @@ a:hover { text-decoration: underline; }
 /* ── Footer ──────────────────────────────────────────────────────── */
 .footer { background: var(--text); color: rgba(255,255,255,0.6); padding: 2rem 0; margin-top: 4rem; }
 
+/* ── Dashboard ───────────────────────────────────────────────────── */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; align-items: start; }
+.dashboard-main {}
+.dashboard-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+.sidebar-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); }
+.sidebar-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+.progress-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; }
+.progress-card-info { flex: 1; }
+.progress-card-info h4 { font-size: 0.95rem; font-weight: 700; }
+.progress-bar-wrap { display: flex; align-items: center; gap: 0.5rem; min-width: 160px; }
+.progress-bar { flex: 1; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.5s; }
+.progress-label { font-size: 0.8rem; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.deadline-list { list-style: none; }
+.deadline-item { display: flex; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.deadline-item:last-child { border-bottom: none; }
+.deadline-type { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 999px; background: var(--primary); color: white; white-space: nowrap; height: fit-content; margin-top: 2px; }
+.announcement-item { padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.announcement-item:last-child { border-bottom: none; }
+.cert-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.cert-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: flex; align-items: center; gap: 1rem; }
+.cert-icon { font-size: 2rem; }
+
+/* ── Quiz ─────────────────────────────────────────────────────────── */
+.quiz-header { margin-bottom: 2rem; }
+.quiz-meta { display: flex; flex-wrap: wrap; gap: 1.5rem; font-size: 0.9rem; color: var(--text-muted); margin-top: 1rem; }
+.quiz-action-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 500px; box-shadow: var(--shadow); }
+.quiz-take-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1.5rem; position: sticky; top: 48px; z-index: 10; box-shadow: var(--shadow); }
+.quiz-timer { font-size: 1.25rem; font-weight: 700; color: var(--danger); }
+.question-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+.question-number { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+.question-text { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+.options-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.option-label { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.2s; }
+.option-label:hover { border-color: var(--primary); background: #f0f6ff; }
+.option-label input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+.quiz-submit-bar { position: sticky; bottom: 0; background: var(--bg); padding: 1rem; border-top: 1px solid var(--border); text-align: center; }
+.quiz-result { padding: 3rem 0; }
+.result-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 3rem; text-align: center; max-width: 500px; margin: 0 auto 3rem; box-shadow: var(--shadow); }
+.result-icon { font-size: 4rem; margin-bottom: 1rem; }
+.result-score { font-size: 3rem; font-weight: 900; color: var(--primary); }
+.result-pct { font-size: 1.5rem; font-weight: 700; color: var(--text-muted); }
+.result-actions { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+.review-card { border-radius: var(--radius); padding: 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid; }
+.review-card.correct { background: #f0fdf4; border-color: var(--success); }
+.review-card.wrong { background: #fef2f2; border-color: var(--danger); }
+.review-card.essay { background: #fffbeb; border-color: var(--warning); }
+.text-correct { color: var(--success); margin-top: 0.25rem; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+
+/* ── Gradebook ────────────────────────────────────────────────────── */
+.grade-table-wrap { overflow-x: auto; }
+.grade-table { width: 100%; border-collapse: collapse; background: var(--white); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.grade-table th { background: var(--text); color: white; padding: 0.75rem 1rem; text-align: left; font-size: 0.85rem; white-space: nowrap; }
+.grade-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.grade-table tr:last-child td { border-bottom: none; }
+.grade-table tr:hover td { background: #f8fafc; }
+
+/* ── Certificate ──────────────────────────────────────────────────── */
+.certificate-wrapper { max-width: 800px; margin: 0 auto; }
+.certificate { background: var(--white); border: 2px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); overflow: hidden; }
+.cert-top-border { height: 12px; background: linear-gradient(90deg, var(--primary), #004db3); }
+.cert-bottom-border { height: 12px; background: linear-gradient(90deg, #004db3, var(--primary)); }
+.cert-body { padding: 3rem; text-align: center; }
+.cert-logo { font-size: 2rem; font-weight: 800; color: var(--primary); margin-bottom: 1rem; }
+.cert-subtitle { font-size: 0.85rem; letter-spacing: 4px; color: var(--text-muted); margin-bottom: 2rem; }
+.cert-awarded { color: var(--text-muted); margin-bottom: 0.5rem; }
+.cert-name { font-size: 2.5rem; font-weight: 800; color: var(--text); margin-bottom: 1rem; font-style: italic; }
+.cert-text { color: var(--text-muted); margin-bottom: 0.5rem; }
+.cert-course { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin-bottom: 2rem; }
+.cert-date { color: var(--text-muted); margin-bottom: 0.5rem; }
+.cert-number { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ── Calendar ─────────────────────────────────────────────────────── */
+.calendar-day { display: flex; gap: 2rem; padding: 1.5rem 0; border-bottom: 1px solid var(--border); }
+.calendar-day:last-child { border-bottom: none; }
+.calendar-date { text-align: center; min-width: 60px; }
+.cal-day { display: block; font-size: 2rem; font-weight: 900; color: var(--primary); line-height: 1; }
+.cal-month { display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.calendar-events { flex: 1; display: flex; flex-direction: column; gap: 0.75rem; }
+.calendar-event-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); }
+.calendar-event-item.quiz { border-left: 4px solid var(--info); }
+.calendar-event-item.assignment { border-left: 4px solid var(--warning); }
+.calendar-event-item.event { border-left: 4px solid var(--success); }
+.calendar-event-item.announcement { border-left: 4px solid var(--primary); }
+.event-type-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+.breadcrumb { font-size: 0.9rem; margin-bottom: 1rem; }
+
+/* ── Notification Bell ───────────────────────────────────────────── */
+.notif-bell { position: relative; }
+.notif-badge {
+  position: absolute; top: -6px; right: -8px;
+  background: var(--danger); color: white;
+  font-size: 0.65rem; font-weight: 700;
+  min-width: 18px; height: 18px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+}
+.notif-item {
+  display: flex; align-items: flex-start; gap: 1rem;
+  padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 0.75rem; background: var(--white); text-decoration: none; color: var(--text);
+  transition: box-shadow 0.2s; position: relative;
+}
+.notif-item:hover { box-shadow: var(--shadow); text-decoration: none; }
+.notif-item.unread { background: #f0f6ff; border-color: #bfdbfe; }
+.notif-icon { font-size: 1.5rem; flex-shrink: 0; }
+.notif-content p { color: var(--text-muted); font-size: 0.9rem; margin: 0.25rem 0; }
+.notif-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--primary);
+  position: absolute; top: 1rem; right: 1rem; flex-shrink: 0;
+}
+
+/* ── Quiz Question Manager ───────────────────────────────────────── */
+.question-manage-card {
+  display: flex; align-items: flex-start; gap: 1rem;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem; margin-bottom: 0.75rem;
+  box-shadow: var(--shadow);
+}
+.question-drag-handle { font-size: 1.25rem; color: var(--text-muted); cursor: grab; padding-top: 2px; user-select: none; }
+.question-manage-content { flex: 1; }
+.question-manage-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.question-order-badge {
+  background: var(--primary); color: white; width: 24px; height: 24px;
+  border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700;
+}
+.option-input-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.option-input-row .form-check-input { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ── File Upload ──────────────────────────────────────────────────── */
+.file-upload-area {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 2rem; text-align: center; cursor: pointer;
+  transition: border-color 0.2s; background: var(--bg);
+}
+.file-upload-area:hover { border-color: var(--primary); }
+
+/* ── Submission Grading ───────────────────────────────────────────── */
+.submission-grade-card {
+  display: grid; grid-template-columns: 1fr 280px; gap: 1.5rem;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow);
+}
+.submission-content {
+  background: var(--bg); border-radius: var(--radius);
+  padding: 0.75rem; font-size: 0.9rem; margin-top: 0.75rem;
+  max-height: 150px; overflow-y: auto; border: 1px solid var(--border);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .hero h1 { font-size: 2rem; }

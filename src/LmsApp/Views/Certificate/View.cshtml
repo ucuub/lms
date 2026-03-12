@@ -1,0 +1,35 @@
+@model Certificate
+@{
+    ViewData["Title"] = "Sertifikat";
+    Layout = "_Layout";
+}
+
+<div class="container" style="padding: 3rem 1.5rem;">
+    <div class="certificate-wrapper">
+        <div class="certificate">
+            <div class="cert-top-border"></div>
+            <div class="cert-body">
+                <div class="cert-logo">🎓 LMS Pro</div>
+                <h2 class="cert-subtitle">SERTIFIKAT PENYELESAIAN</h2>
+                <p class="cert-awarded">Diberikan kepada</p>
+                <h1 class="cert-name">@Model.UserName</h1>
+                <p class="cert-text">telah berhasil menyelesaikan kursus</p>
+                <h3 class="cert-course">@Model.Course.Title</h3>
+                <p class="cert-date">@Model.IssuedAt.ToString("dd MMMM yyyy")</p>
+                <p class="cert-number">No. Sertifikat: <strong>@Model.CertificateNumber</strong></p>
+            </div>
+            <div class="cert-bottom-border"></div>
+        </div>
+        <div style="text-align:center; margin-top:1.5rem;">
+            <button onclick="window.print()" class="btn btn-primary">🖨 Cetak / Simpan PDF</button>
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline">Kembali</a>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+  .navbar, .footer, button, .btn { display: none !important; }
+  .certificate { box-shadow: none; border: 3px solid #006aff; }
+}
+</style>
