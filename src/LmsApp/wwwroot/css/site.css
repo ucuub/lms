@@ -1,0 +1,188 @@
+/* ── Variables ──────────────────────────────────────────────────── */
+:root {
+  --primary: #006aff;
+  --primary-dark: #0052cc;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --text: #1a1a2e;
+  --text-muted: #6b7280;
+  --bg: #f8fafc;
+  --white: #ffffff;
+  --border: #e2e8f0;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --radius: 8px;
+  --font: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); color: var(--text); background: var(--bg); line-height: 1.6; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Container ──────────────────────────────────────────────────── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ── Navbar ─────────────────────────────────────────────────────── */
+.navbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+}
+.navbar .container { display: flex; align-items: center; justify-content: space-between; }
+.navbar-brand { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+.navbar-brand:hover { text-decoration: none; }
+.navbar-menu { list-style: none; display: flex; align-items: center; gap: 1.5rem; }
+.navbar-menu a { color: var(--text); font-weight: 500; }
+.navbar-menu a:hover { color: var(--primary); text-decoration: none; }
+.navbar-user { display: flex; align-items: center; gap: 0.75rem; }
+.navbar-user span { font-size: 0.9rem; color: var(--text-muted); }
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius);
+  font-weight: 600; font-size: 0.9rem;
+  border: 2px solid transparent;
+  cursor: pointer; transition: all 0.2s;
+  text-decoration: none;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.btn-primary { background: var(--primary); color: var(--white); border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--white); }
+.btn-outline { background: transparent; color: var(--primary); border-color: var(--primary); }
+.btn-outline:hover { background: var(--primary); color: var(--white); }
+.btn-sm { padding: 0.35rem 0.85rem; font-size: 0.85rem; }
+.btn-lg { padding: 0.75rem 2rem; font-size: 1rem; }
+.btn-block { width: 100%; display: block; text-align: center; }
+
+/* ── Hero ────────────────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg, var(--primary) 0%, #004db3 100%);
+  color: var(--white); padding: 5rem 0;
+  text-align: center;
+}
+.hero h1 { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; }
+.hero p { font-size: 1.25rem; opacity: 0.9; margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto; }
+.hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.hero .btn-outline { border-color: var(--white); color: var(--white); }
+.hero .btn-outline:hover { background: var(--white); color: var(--primary); }
+.text-primary { color: #7dd3fc; }
+
+/* ── Stats ───────────────────────────────────────────────────────── */
+.stats { padding: 3rem 0; background: var(--white); border-bottom: 1px solid var(--border); }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2rem; text-align: center; }
+.stat-card h2 { font-size: 2.5rem; font-weight: 800; color: var(--primary); }
+.stat-card p { color: var(--text-muted); font-weight: 500; }
+
+/* ── Section ─────────────────────────────────────────────────────── */
+.featured-courses, .course-list, .my-courses { padding: 4rem 0; }
+.section-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 2rem; }
+
+/* ── Course Grid ─────────────────────────────────────────────────── */
+.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+.course-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: var(--shadow); display: flex; flex-direction: column;
+  transition: box-shadow 0.2s;
+}
+.course-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.course-card-body { padding: 1.5rem; flex: 1; }
+.course-card-body h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+.course-card-body p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; }
+.course-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); }
+.course-card-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border); }
+
+/* ── Page Header ─────────────────────────────────────────────────── */
+.page-header { background: var(--white); border-bottom: 1px solid var(--border); padding: 2rem 0; }
+.page-header h1 { font-size: 2rem; font-weight: 700; }
+.search-form { display: flex; gap: 0.75rem; margin-top: 1rem; max-width: 500px; }
+.result-count { color: var(--text-muted); margin-bottom: 1.5rem; }
+
+/* ── Course Detail ───────────────────────────────────────────────── */
+.course-detail { padding: 3rem 0; }
+.course-detail-header { margin-bottom: 2rem; }
+.course-detail-header h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.75rem; }
+.course-description { font-size: 1.1rem; color: var(--text-muted); margin: 1rem 0; }
+.course-detail-content { display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start; }
+.course-modules h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
+.module-list { list-style: none; }
+.module-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem 1rem; border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 0.5rem;
+  background: var(--white);
+}
+.module-item.locked { opacity: 0.6; }
+.module-number { background: var(--primary); color: var(--white); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+.enrollment-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); position: sticky; top: 80px; }
+.enrolled-badge { background: var(--success); color: var(--white); padding: 0.5rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; text-align: center; font-weight: 600; }
+.enrollment-info { color: var(--text-muted); margin-bottom: 1rem; }
+.course-includes { margin-top: 1.5rem; }
+.course-includes h4 { font-weight: 700; margin-bottom: 0.5rem; }
+.course-includes ul { list-style: none; }
+.course-includes li { padding: 0.25rem 0; color: var(--text-muted); }
+.course-includes li::before { content: "✓ "; color: var(--success); font-weight: 700; }
+.assignments-section { margin-top: 3rem; }
+.assignment-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+.due-date { font-size: 0.85rem; color: var(--warning); font-weight: 600; }
+.instructor-actions { margin-top: 2rem; }
+
+/* ── Form ────────────────────────────────────────────────────────── */
+.form-page { padding: 3rem 0; }
+.form-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 600px; box-shadow: var(--shadow); }
+.form-card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+.form-group { margin-bottom: 1.25rem; }
+.form-label { display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem; }
+.form-control {
+  width: 100%; padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 0.95rem; transition: border-color 0.2s;
+  background: var(--white);
+}
+.form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,106,255,0.1); }
+.form-check { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.form-check-input { width: 18px; height: 18px; cursor: pointer; }
+.form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.text-danger { color: var(--danger); font-size: 0.85rem; }
+
+/* ── Alerts ──────────────────────────────────────────────────────── */
+.alert { padding: 0.85rem 1.25rem; border-radius: var(--radius); margin-bottom: 1rem; font-weight: 500; }
+.alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+/* ── Badges ──────────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-info { background: #dbeafe; color: #1e40af; }
+.course-badges { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+
+/* ── Empty State ─────────────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+.empty-state p { font-size: 1.1rem; margin-bottom: 1.5rem; }
+
+/* ── Error Page ──────────────────────────────────────────────────── */
+.error-page { padding: 6rem 0; text-align: center; }
+.error-page h1 { font-size: 6rem; font-weight: 900; color: var(--primary); }
+.error-page h2 { font-size: 2rem; margin-bottom: 1rem; }
+.error-page p { color: var(--text-muted); margin-bottom: 2rem; }
+.text-center { text-align: center; }
+.text-muted { color: var(--text-muted); }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.footer { background: var(--text); color: rgba(255,255,255,0.6); padding: 2rem 0; margin-top: 4rem; }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2rem; }
+  .navbar-menu { gap: 0.75rem; flex-wrap: wrap; }
+  .course-detail-content { grid-template-columns: 1fr; }
+  .enrollment-card { position: static; }
+}

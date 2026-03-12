@@ -1,0 +1,39 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+
+## Migrations (optional - uncomment to exclude)
+# src/LmsApp/Migrations/
+
+## Environment & Secrets
+appsettings.Development.json
+appsettings.Production.json
+.env
+*.env
+secrets.json
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Node (legacy - from previous Next.js setup)
+node_modules/
+.next/
+package-lock.json
+
+## Claude Code local settings
+.claude/
+
+## Legacy Next.js files (project migrated to .NET)
+app/
+public/
+next.config.ts
+tsconfig.json
+
+## Docker
+docker-compose.override.yml

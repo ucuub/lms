@@ -1,0 +1,78 @@
+@model IEnumerable<Course>
+@{
+    ViewData["Title"] = "Beranda";
+}
+
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>Selamat Datang di <span class="text-primary">LMS Pro</span></h1>
+        <p>Platform pembelajaran online terbaik untuk meningkatkan keterampilan Anda.</p>
+        <div class="hero-actions">
+            @if (User.Identity?.IsAuthenticated != true)
+            {
+                <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg">Mulai Belajar</a>
+            }
+            <a asp-controller="Course" asp-action="Index" class="btn btn-outline btn-lg">Lihat Kursus</a>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>@ViewBag.TotalCourses</h2>
+                <p>Kursus Tersedia</p>
+            </div>
+            <div class="stat-card">
+                <h2>@ViewBag.TotalEnrollments</h2>
+                <p>Total Pendaftaran</p>
+            </div>
+            <div class="stat-card">
+                <h2>100%</h2>
+                <p>Online</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Courses -->
+<section class="featured-courses">
+    <div class="container">
+        <h2 class="section-title">Kursus Terbaru</h2>
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <p>Belum ada kursus tersedia. Jadilah yang pertama!</p>
+                @if (User.IsInRole("instructor") || User.IsInRole("admin"))
+                {
+                    <a asp-controller="Course" asp-action="Create" class="btn btn-primary">Buat Kursus</a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="course-grid">
+                @foreach (var course in Model)
+                {
+                    <div class="course-card">
+                        <div class="course-card-body">
+                            <h3>@course.Title</h3>
+                            <p>@(course.Description.Length > 100 ? course.Description[..100] + "..." : course.Description)</p>
+                            <div class="course-meta">
+                                <span>Instruktur: @course.InstructorName</span>
+                            </div>
+                        </div>
+                        <div class="course-card-footer">
+                            <a asp-controller="Course" asp-action="Details" asp-route-id="@course.Id" class="btn btn-primary btn-sm">
+                                Lihat Kursus
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>

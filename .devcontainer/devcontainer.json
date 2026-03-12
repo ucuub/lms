@@ -1,0 +1,46 @@
+{
+  "name": "LMS Pro - .NET 8",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0",
+
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "8.0"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "Metatype.copilot-csharp",
+        "streetsidesoftware.code-spell-checker",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+        "humao.rest-client"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "dotnet.defaultSolution": "LmsApp.sln"
+      }
+    }
+  },
+
+  "forwardPorts": [8000, 8080, 5432],
+  "portsAttributes": {
+    "8000": { "label": "LMS App", "onAutoForward": "openBrowser" },
+    "8080": { "label": "Keycloak" },
+    "5432": { "label": "PostgreSQL" }
+  },
+
+  "postCreateCommand": "cd src/LmsApp && dotnet restore",
+  "postStartCommand": "docker-compose up -d postgres keycloak",
+
+  "remoteUser": "vscode"
+}

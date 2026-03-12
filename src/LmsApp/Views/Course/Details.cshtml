@@ -1,0 +1,116 @@
+@model CourseDetailsViewModel
+@{
+    ViewData["Title"] = Model.Course.Title;
+}
+
+<section class="course-detail">
+    <div class="container">
+        <div class="course-detail-header">
+            <h1>@Model.Course.Title</h1>
+            <div class="course-badges">
+                @if (Model.Course.IsPublished)
+                {
+                    <span class="badge badge-success">Dipublikasi</span>
+                }
+                else
+                {
+                    <span class="badge badge-warning">Draft</span>
+                }
+            </div>
+            <p class="course-description">@Model.Course.Description</p>
+            <div class="course-meta">
+                <span>Instruktur: <strong>@Model.Course.InstructorName</strong></span>
+                <span>@Model.EnrollmentCount peserta</span>
+                <span>@Model.Course.Modules.Count modul</span>
+                <span>@Model.Course.Assignments.Count tugas</span>
+            </div>
+        </div>
+
+        <div class="course-detail-content">
+            <!-- Left: Modules -->
+            <div class="course-modules">
+                <h2>Materi Kursus</h2>
+                @if (!Model.Course.Modules.Any())
+                {
+                    <p class="text-muted">Belum ada materi.</p>
+                }
+                else
+                {
+                    <ol class="module-list">
+                        @foreach (var module in Model.Course.Modules)
+                        {
+                            <li class="module-item @(Model.IsEnrolled ? "" : "locked")">
+                                <span class="module-number">@module.Order</span>
+                                <span class="module-title">@module.Title</span>
+                                @if (!Model.IsEnrolled)
+                                {
+                                    <span class="lock-icon">🔒</span>
+                                }
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+
+            <!-- Right: Enrollment Card -->
+            <div class="enrollment-card">
+                @if (Model.IsEnrolled)
+                {
+                    <div class="enrolled-badge">✓ Sudah Terdaftar</div>
+                    <a asp-controller="Course" asp-action="MyCourses" class="btn btn-primary btn-block">
+                        Lanjut Belajar
+                    </a>
+                }
+                else
+                {
+                    <p class="enrollment-info">Daftarkan diri Anda untuk mengakses semua materi.</p>
+                    <form asp-action="Enroll" asp-route-id="@Model.Course.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Daftar Sekarang (Gratis)
+                        </button>
+                    </form>
+                }
+
+                <div class="course-includes">
+                    <h4>Termasuk:</h4>
+                    <ul>
+                        <li>@Model.Course.Modules.Count materi pembelajaran</li>
+                        <li>@Model.Course.Assignments.Count tugas</li>
+                        <li>Akses seumur hidup</li>
+                        <li>Sertifikat penyelesaian</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments -->
+        @if (Model.IsEnrolled && Model.Course.Assignments.Any())
+        {
+            <div class="assignments-section">
+                <h2>Tugas</h2>
+                <div class="assignment-list">
+                    @foreach (var assignment in Model.Course.Assignments)
+                    {
+                        <div class="assignment-card">
+                            <h4>@assignment.Title</h4>
+                            <p>@assignment.Description</p>
+                            @if (assignment.DueDate.HasValue)
+                            {
+                                <span class="due-date">Tenggat: @assignment.DueDate.Value.ToString("dd MMM yyyy")</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Edit button for instructor -->
+        @if (User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
+        {
+            <div class="instructor-actions">
+                <a asp-action="Edit" asp-route-id="@Model.Course.Id" class="btn btn-outline">Edit Kursus</a>
+            </div>
+        }
+    </div>
+</section>

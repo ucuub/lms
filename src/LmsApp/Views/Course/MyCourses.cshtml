@@ -1,0 +1,47 @@
+@model IEnumerable<Enrollment>
+@{
+    ViewData["Title"] = "Kursus Saya";
+}
+
+<section class="page-header">
+    <div class="container">
+        <h1>Kursus Saya</h1>
+    </div>
+</section>
+
+<section class="my-courses">
+    <div class="container">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <p>Anda belum mendaftar di kursus manapun.</p>
+                <a asp-action="Index" class="btn btn-primary">Jelajahi Kursus</a>
+            </div>
+        }
+        else
+        {
+            <div class="course-grid">
+                @foreach (var enrollment in Model)
+                {
+                    <div class="course-card">
+                        <div class="course-card-body">
+                            <h3>@enrollment.Course.Title</h3>
+                            <p>@(enrollment.Course.Description.Length > 80 ? enrollment.Course.Description[..80] + "..." : enrollment.Course.Description)</p>
+                            <div class="course-meta">
+                                <span class="badge @(enrollment.Status == EnrollmentStatus.Completed ? "badge-success" : "badge-info")">
+                                    @enrollment.Status
+                                </span>
+                                <span>Daftar: @enrollment.EnrolledAt.ToString("dd MMM yyyy")</span>
+                            </div>
+                        </div>
+                        <div class="course-card-footer">
+                            <a asp-action="Details" asp-route-id="@enrollment.CourseId" class="btn btn-primary btn-sm">
+                                Lanjutkan
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>

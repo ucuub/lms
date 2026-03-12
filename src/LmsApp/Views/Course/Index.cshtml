@@ -1,0 +1,53 @@
+@model IEnumerable<Course>
+@{
+    ViewData["Title"] = "Daftar Kursus";
+}
+
+<section class="page-header">
+    <div class="container">
+        <h1>Kursus Tersedia</h1>
+        <form method="get" class="search-form">
+            <input type="text" name="search" value="@ViewBag.Search" placeholder="Cari kursus..." class="form-control" />
+            <button type="submit" class="btn btn-primary">Cari</button>
+            @if (!string.IsNullOrEmpty(ViewBag.Search as string))
+            {
+                <a asp-action="Index" class="btn btn-outline">Reset</a>
+            }
+        </form>
+    </div>
+</section>
+
+<section class="course-list">
+    <div class="container">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <p>Tidak ada kursus yang ditemukan.</p>
+            </div>
+        }
+        else
+        {
+            <p class="result-count">Ditemukan @Model.Count() kursus</p>
+            <div class="course-grid">
+                @foreach (var course in Model)
+                {
+                    <div class="course-card">
+                        <div class="course-card-body">
+                            <h3>@course.Title</h3>
+                            <p>@(course.Description.Length > 120 ? course.Description[..120] + "..." : course.Description)</p>
+                            <div class="course-meta">
+                                <span>Instruktur: @course.InstructorName</span>
+                                <span>@course.CreatedAt.ToString("dd MMM yyyy")</span>
+                            </div>
+                        </div>
+                        <div class="course-card-footer">
+                            <a asp-action="Details" asp-route-id="@course.Id" class="btn btn-primary btn-sm">
+                                Lihat Detail
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>

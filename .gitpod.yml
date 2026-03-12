@@ -1,0 +1,35 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - name: Start Infrastructure
+    init: docker-compose up -d postgres keycloak
+    command: docker-compose up -d postgres keycloak
+
+  - name: LMS App (.NET)
+    init: cd src/LmsApp && dotnet restore
+    command: |
+      cd src/LmsApp
+      dotnet ef database update
+      dotnet run
+
+ports:
+  - port: 8000
+    onOpen: open-browser
+    name: LMS App
+    description: ASP.NET Core MVC
+  - port: 8080
+    onOpen: notify
+    name: Keycloak
+    description: Identity Provider
+  - port: 5432
+    onOpen: ignore
+    name: PostgreSQL
+
+vscode:
+  extensions:
+    - ms-dotnettools.csharp
+    - ms-dotnettools.csdevkit
+    - ms-dotnettools.vscode-dotnet-runtime
+    - eamodio.gitlens
+    - humao.rest-client
