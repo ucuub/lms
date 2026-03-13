@@ -1,4 +1,5 @@
 using LmsApp.Data;
+using LmsApp.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public class AdminController(LmsDbContext db) : Controller
         ViewBag.TotalEnrollments = await db.Enrollments.CountAsync();
         ViewBag.TotalQuizzes = await db.Quizzes.CountAsync();
         ViewBag.TotalCertificates = await db.Certificates.CountAsync();
+        ViewBag.TotalUsers = await db.AppUsers.CountAsync();
 
         var recentCourses = await db.Courses
             .OrderByDescending(c => c.CreatedAt).Take(5).ToListAsync();
@@ -59,5 +61,70 @@ public class AdminController(LmsDbContext db) : Controller
 
         TempData["Success"] = $"Kursus '{course.Title}' dihapus.";
         return RedirectToAction(nameof(Courses));
+    }
+
+    // ── User Management ──────────────────────────────────────────────
+
+    // GET: /Admin/Users
+    public async Task<IActionResult> Users(string? search, string? role, int page = 1)
+    {
+        const int pageSize = 20;
+        var query = db.AppUsers.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
+
+        if (!string.IsNullOrWhiteSpace(role) && role != "all")
+            query = query.Where(u => u.Role == role);
+
+        int total = await query.CountAsync();
+        var users = await query
+            .OrderByDescending(u => u.LastLoginAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        ViewBag.Search = search;
+        ViewBag.FilterRole = role;
+        ViewBag.Page = page;
+        ViewBag.TotalPages = (int)Math.Ceiling(total / (double)pageSize);
+        ViewBag.Total = total;
+        ViewBag.StudentCount = await db.AppUsers.CountAsync(u => u.Role == "student");
+        ViewBag.InstructorCount = await db.AppUsers.CountAsync(u => u.Role == "instructor");
+        ViewBag.AdminCount = await db.AppUsers.CountAsync(u => u.Role == "admin");
+        return View(users);
+    }
+
+    // POST: /Admin/SetRole
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetRole(int userId, string role)
+    {
+        var validRoles = new[] { "student", "instructor", "admin" };
+        if (!validRoles.Contains(role))
+        {
+            TempData["Error"] = "Role tidak valid.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        var user = await db.AppUsers.FindAsync(userId);
+        if (user is null) return NotFound();
+
+        user.Role = role;
+        await db.SaveChangesAsync();
+        TempData["Success"] = $"Role {user.Name} diubah menjadi {role}.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    // POST: /Admin/ToggleUserActive
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleUserActive(int userId)
+    {
+        var user = await db.AppUsers.FindAsync(userId);
+        if (user is null) return NotFound();
+
+        user.IsActive = !user.IsActive;
+        await db.SaveChangesAsync();
+        TempData["Success"] = $"Akun {user.Name} {(user.IsActive ? "diaktifkan" : "dinonaktifkan")}.";
+        return RedirectToAction(nameof(Users));
     }
 }

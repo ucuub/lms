@@ -1,0 +1,139 @@
+@model IEnumerable<LmsApp.Models.AppUser>
+@{
+    ViewData["Title"] = "Manajemen Pengguna";
+    int page = (int)ViewBag.Page;
+    int totalPages = (int)ViewBag.TotalPages;
+    string? search = ViewBag.Search;
+    string? filterRole = ViewBag.FilterRole;
+}
+
+<section class="page-header">
+    <div class="container">
+        <a asp-action="Index">← Admin Panel</a>
+        <h1>👥 Manajemen Pengguna</h1>
+        <p class="text-muted">@ViewBag.Total pengguna terdaftar</p>
+    </div>
+</section>
+
+<div class="container" style="padding:2rem 1.5rem">
+
+    <!-- Stats Row -->
+    <div class="stats-grid" style="margin-bottom:1.5rem;grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card">
+            <h2>@ViewBag.StudentCount</h2>
+            <p>Peserta</p>
+        </div>
+        <div class="stat-card">
+            <h2>@ViewBag.InstructorCount</h2>
+            <p>Instruktur</p>
+        </div>
+        <div class="stat-card">
+            <h2>@ViewBag.AdminCount</h2>
+            <p>Admin</p>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="get" asp-action="Users" style="display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap">
+        <input type="text" name="search" value="@search" class="form-control"
+               placeholder="Cari nama atau email..." style="flex:1;min-width:200px" />
+        <select name="role" class="form-control" style="width:150px">
+            <option value="all" selected="@(filterRole == null || filterRole == "all")">Semua Role</option>
+            <option value="student" selected="@(filterRole == "student")">Student</option>
+            <option value="instructor" selected="@(filterRole == "instructor")">Instruktur</option>
+            <option value="admin" selected="@(filterRole == "admin")">Admin</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Cari</button>
+        @if (!string.IsNullOrEmpty(search) || (filterRole != null && filterRole != "all"))
+        {
+            <a asp-action="Users" class="btn btn-outline">Reset</a>
+        }
+    </form>
+
+    @if (!Model.Any())
+    {
+        <div class="forum-empty">
+            <p>Tidak ada pengguna ditemukan.</p>
+        </div>
+    }
+    else
+    {
+        <div class="user-table-wrap">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Pengguna</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Login Terakhir</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr class="@(!user.IsActive ? "user-inactive" : "")">
+                            <td>
+                                <div style="display:flex;align-items:center;gap:.65rem">
+                                    <div class="user-avatar-sm">@(user.Name.Length > 0 ? char.ToUpper(user.Name[0]) : '?')</div>
+                                    <span style="font-weight:600">@user.Name</span>
+                                </div>
+                            </td>
+                            <td class="text-muted" style="font-size:.85rem">@user.Email</td>
+                            <td>
+                                <span class="role-badge role-@user.Role">@user.Role</span>
+                            </td>
+                            <td>
+                                <span class="@(user.IsActive ? "status-active" : "status-inactive")">
+                                    @(user.IsActive ? "Aktif" : "Nonaktif")
+                                </span>
+                            </td>
+                            <td class="text-muted" style="font-size:.8rem">
+                                @user.LastLoginAt.ToString("dd MMM yyyy, HH:mm")
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+                                    <!-- Set Role -->
+                                    <form asp-action="SetRole" method="post" style="display:flex;gap:.3rem">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <select name="role" class="form-control" style="font-size:.78rem;padding:.25rem .4rem;height:auto">
+                                            <option value="student" selected="@(user.Role=="student")">student</option>
+                                            <option value="instructor" selected="@(user.Role=="instructor")">instructor</option>
+                                            <option value="admin" selected="@(user.Role=="admin")">admin</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-primary" style="font-size:.78rem;padding:.25rem .55rem">
+                                            Set
+                                        </button>
+                                    </form>
+                                    <!-- Toggle Active -->
+                                    <form asp-action="ToggleUserActive" method="post" style="display:inline"
+                                          onsubmit="return confirm('@(user.IsActive ? "Nonaktifkan" : "Aktifkan") akun ini?')">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <button type="submit" class="btn btn-sm @(user.IsActive ? "btn-outline" : "")"
+                                                style="font-size:.78rem;padding:.25rem .55rem;@(!user.IsActive ? "background:#22c55e;color:white;border:none" : "")">
+                                            @(user.IsActive ? "Nonaktifkan" : "Aktifkan")
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <div class="pagination" style="margin-top:1.5rem">
+                @for (int i = 1; i <= totalPages; i++)
+                {
+                    <a asp-action="Users" asp-route-page="@i" asp-route-search="@search" asp-route-role="@filterRole"
+                       class="btn @(i == page ? "btn-primary" : "btn-outline")" style="padding:.4rem .8rem">@i</a>
+                }
+            </div>
+        }
+    }
+</div>

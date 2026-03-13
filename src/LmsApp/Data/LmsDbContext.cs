@@ -5,6 +5,9 @@ namespace LmsApp.Data;
 
 public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(options)
 {
+    // Users
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+
     // Core
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseModule> CourseModules => Set<CourseModule>();
@@ -34,6 +37,15 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // AppUser
+        modelBuilder.Entity<AppUser>(e =>
+        {
+            e.HasKey(u => u.Id);
+            e.HasIndex(u => u.UserId).IsUnique();
+            e.Property(u => u.UserId).HasMaxLength(100).IsRequired();
+            e.Property(u => u.Role).HasMaxLength(50).HasDefaultValue("student");
+        });
 
         // Course
         modelBuilder.Entity<Course>(e =>

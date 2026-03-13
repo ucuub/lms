@@ -1,5 +1,6 @@
 using LmsApp.Data;
 using LmsApp.Models;
+using LmsApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LmsApp.Controllers;
 
 [Authorize]
-public class AnnouncementController(LmsDbContext db) : Controller
+public class AnnouncementController(LmsDbContext db, INotificationService notifications) : Controller
 {
     // GET: /Announcement/Course/5
     public async Task<IActionResult> Course(int courseId)
@@ -38,6 +39,9 @@ public class AnnouncementController(LmsDbContext db) : Controller
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "instructor,admin")]
     public async Task<IActionResult> Create(int courseId, string title, string content, bool isPinned)
     {
+        var course = await db.Courses.FindAsync(courseId);
+        if (course is null) return NotFound();
+
         db.Announcements.Add(new Announcement
         {
             CourseId = courseId,
@@ -58,7 +62,23 @@ public class AnnouncementController(LmsDbContext db) : Controller
         });
 
         await db.SaveChangesAsync();
-        TempData["Success"] = "Pengumuman berhasil dikirim!";
+
+        // Broadcast notification to all enrolled users
+        var enrolledUserIds = await db.Enrollments
+            .Where(e => e.CourseId == courseId)
+            .Select(e => e.UserId)
+            .ToListAsync();
+
+        if (enrolledUserIds.Count > 0)
+        {
+            await notifications.CreateForAnnouncementAsync(
+                enrolledUserIds,
+                course.Title,
+                title,
+                $"/Announcement/Course?courseId={courseId}");
+        }
+
+        TempData["Success"] = $"Pengumuman dikirim ke {enrolledUserIds.Count} peserta.";
         return RedirectToAction(nameof(Course), new { courseId });
     }
 

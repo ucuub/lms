@@ -10,11 +10,17 @@
 </section>
 
 <div class="container" style="padding: 2rem 1.5rem;">
-    <div class="stats-grid" style="margin-bottom:2rem">
+    <div class="stats-grid" style="margin-bottom:1.5rem">
+        <div class="stat-card"><h2>@ViewBag.TotalUsers</h2><p>Total Pengguna</p></div>
         <div class="stat-card"><h2>@ViewBag.TotalCourses</h2><p>Total Kursus</p></div>
-        <div class="stat-card"><h2>@ViewBag.TotalEnrollments</h2><p>Total Pendaftaran</p></div>
+        <div class="stat-card"><h2>@ViewBag.TotalEnrollments</h2><p>Pendaftaran</p></div>
         <div class="stat-card"><h2>@ViewBag.TotalQuizzes</h2><p>Total Quiz</p></div>
-        <div class="stat-card"><h2>@ViewBag.TotalCertificates</h2><p>Sertifikat Diterbitkan</p></div>
+        <div class="stat-card"><h2>@ViewBag.TotalCertificates</h2><p>Sertifikat</p></div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:2rem">
+        <a asp-action="Users" class="btn btn-primary">👥 Kelola Pengguna</a>
+        <a asp-action="Courses" class="btn btn-outline">📚 Kelola Kursus</a>
     </div>
 
     <h2 class="section-title">Kursus Terbaru</h2>

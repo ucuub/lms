@@ -170,19 +170,44 @@ public class QuizController(LmsDbContext db) : Controller
         return RedirectToAction(nameof(Result), new { attemptId = attempt.Id });
     }
 
+    // GET: /Quiz/Manage/{courseId}  (instructor)
+    [Authorize(Roles = "instructor,admin")]
+    public async Task<IActionResult> Manage(int courseId)
+    {
+        var course = await db.Courses
+            .Include(c => c.Quizzes)
+                .ThenInclude(q => q.Questions)
+            .Include(c => c.Quizzes)
+                .ThenInclude(q => q.Attempts)
+            .FirstOrDefaultAsync(c => c.Id == courseId);
+
+        if (course is null) return NotFound();
+        return View(course);
+    }
+
     // GET: /Quiz/Create?courseId=5  (instructor)
     [Authorize(Roles = "instructor,admin")]
     public IActionResult Create(int courseId)
     {
         ViewBag.CourseId = courseId;
-        return View();
+        return View(new QuizCreateViewModel
+        {
+            CourseId = courseId,
+            TimeLimitMinutes = 30,
+            MaxAttempts = 1,
+            PassScore = 60
+        });
     }
 
     // POST: /Quiz/Create
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "instructor,admin")]
     public async Task<IActionResult> Create(QuizCreateViewModel vm)
     {
-        if (!ModelState.IsValid) return View(vm);
+        if (!ModelState.IsValid)
+        {
+            ViewBag.CourseId = vm.CourseId;
+            return View(vm);
+        }
 
         var quiz = new Quiz
         {
@@ -200,16 +225,95 @@ public class QuizController(LmsDbContext db) : Controller
         await db.SaveChangesAsync();
 
         // Add calendar event
-        db.CalendarEvents.Add(new CalendarEvent
+        if (vm.DueDate.HasValue)
         {
-            CourseId = vm.CourseId,
-            Title = $"Quiz: {vm.Title}",
-            EventDate = vm.DueDate ?? DateTime.UtcNow.AddDays(7),
-            Type = CalendarEventType.Quiz
+            db.CalendarEvents.Add(new CalendarEvent
+            {
+                CourseId = vm.CourseId,
+                Title = $"Quiz: {vm.Title}",
+                EventDate = vm.DueDate.Value,
+                Type = CalendarEventType.Quiz
+            });
+            await db.SaveChangesAsync();
+        }
+
+        TempData["Success"] = "Quiz berhasil dibuat! Sekarang tambahkan soal.";
+        return RedirectToAction("Manage", "Question", new { quizId = quiz.Id });
+    }
+
+    // GET: /Quiz/Edit/{id}  (instructor)
+    [Authorize(Roles = "instructor,admin")]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var quiz = await db.Quizzes.Include(q => q.Course).FirstOrDefaultAsync(q => q.Id == id);
+        if (quiz is null) return NotFound();
+
+        ViewBag.Quiz = quiz;
+        return View(new QuizCreateViewModel
+        {
+            CourseId = quiz.CourseId,
+            Title = quiz.Title,
+            Description = quiz.Description,
+            TimeLimitMinutes = quiz.TimeLimitMinutes,
+            MaxAttempts = quiz.MaxAttempts,
+            PassScore = quiz.PassScore,
+            DueDate = quiz.DueDate,
+            IsPublished = quiz.IsPublished
         });
+    }
+
+    // POST: /Quiz/Edit/{id}
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "instructor,admin")]
+    public async Task<IActionResult> Edit(int id, QuizCreateViewModel vm)
+    {
+        var quiz = await db.Quizzes.Include(q => q.Course).FirstOrDefaultAsync(q => q.Id == id);
+        if (quiz is null) return NotFound();
+
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Quiz = quiz;
+            return View(vm);
+        }
+
+        quiz.Title = vm.Title;
+        quiz.Description = vm.Description;
+        quiz.TimeLimitMinutes = vm.TimeLimitMinutes;
+        quiz.MaxAttempts = vm.MaxAttempts;
+        quiz.PassScore = vm.PassScore;
+        quiz.DueDate = vm.DueDate;
+        quiz.IsPublished = vm.IsPublished;
         await db.SaveChangesAsync();
 
-        TempData["Success"] = "Quiz berhasil dibuat!";
-        return RedirectToAction("Details", "Course", new { id = vm.CourseId });
+        TempData["Success"] = "Quiz berhasil diperbarui.";
+        return RedirectToAction(nameof(Manage), new { courseId = quiz.CourseId });
+    }
+
+    // POST: /Quiz/Delete
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "instructor,admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var quiz = await db.Quizzes.FindAsync(id);
+        if (quiz is null) return NotFound();
+
+        var courseId = quiz.CourseId;
+        db.Quizzes.Remove(quiz);
+        await db.SaveChangesAsync();
+
+        TempData["Success"] = "Quiz berhasil dihapus.";
+        return RedirectToAction(nameof(Manage), new { courseId });
+    }
+
+    // POST: /Quiz/TogglePublish
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "instructor,admin")]
+    public async Task<IActionResult> TogglePublish(int id)
+    {
+        var quiz = await db.Quizzes.FindAsync(id);
+        if (quiz is null) return NotFound();
+
+        quiz.IsPublished = !quiz.IsPublished;
+        await db.SaveChangesAsync();
+
+        TempData["Success"] = $"Quiz '{quiz.Title}' {(quiz.IsPublished ? "dipublikasikan" : "disembunyikan")}.";
+        return RedirectToAction(nameof(Manage), new { courseId = quiz.CourseId });
     }
 }

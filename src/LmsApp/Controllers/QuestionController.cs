@@ -112,4 +112,105 @@ public class QuestionController(LmsDbContext db) : Controller
         await db.SaveChangesAsync();
         return Ok();
     }
+
+    // POST: /Question/ImportCsv
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportCsv(int quizId, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+        {
+            TempData["Error"] = "File CSV tidak valid.";
+            return RedirectToAction(nameof(Create), new { quizId });
+        }
+
+        int order = await db.Questions.CountAsync(q => q.QuizId == quizId);
+        int imported = 0;
+        var errors = new List<string>();
+
+        using var reader = new System.IO.StreamReader(file.OpenReadStream());
+        int lineNum = 0;
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync();
+            lineNum++;
+            if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith('#')) continue;
+
+            var cols = line.Split(',');
+            if (cols.Length < 3)
+            {
+                errors.Add($"Baris {lineNum}: Format tidak valid (minimal 3 kolom).");
+                continue;
+            }
+
+            var tipe = cols[0].Trim().ToLower();
+            var text = cols[1].Trim();
+            if (!int.TryParse(cols[2].Trim(), out int points)) points = 10;
+
+            order++;
+            var question = new Question
+            {
+                QuizId = quizId,
+                Text = text,
+                Points = points,
+                Order = order
+            };
+
+            if (tipe == "mcq")
+            {
+                question.Type = QuestionType.MultipleChoice;
+                db.Questions.Add(question);
+                await db.SaveChangesAsync();
+
+                var optTexts = new[] {
+                    cols.ElementAtOrDefault(3)?.Trim(),
+                    cols.ElementAtOrDefault(4)?.Trim(),
+                    cols.ElementAtOrDefault(5)?.Trim(),
+                    cols.ElementAtOrDefault(6)?.Trim()
+                };
+                var correct = cols.ElementAtOrDefault(7)?.Trim().ToUpper() ?? "A";
+
+                for (int i = 0; i < 4; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(optTexts[i])) continue;
+                    db.QuestionOptions.Add(new QuestionOption
+                    {
+                        QuestionId = question.Id,
+                        Text = optTexts[i]!,
+                        IsCorrect = correct == ((char)('A' + i)).ToString()
+                    });
+                }
+            }
+            else if (tipe == "tf")
+            {
+                question.Type = QuestionType.TrueFalse;
+                var ans = cols.ElementAtOrDefault(7)?.Trim().ToLower() ?? "true";
+                db.Questions.Add(question);
+                await db.SaveChangesAsync();
+                db.QuestionOptions.AddRange([
+                    new QuestionOption { QuestionId = question.Id, Text = "Benar", IsCorrect = ans == "true" },
+                    new QuestionOption { QuestionId = question.Id, Text = "Salah", IsCorrect = ans == "false" }
+                ]);
+            }
+            else if (tipe == "essay")
+            {
+                question.Type = QuestionType.Essay;
+                db.Questions.Add(question);
+            }
+            else
+            {
+                errors.Add($"Baris {lineNum}: Tipe '{tipe}' tidak dikenal (gunakan mcq/tf/essay).");
+                order--;
+                continue;
+            }
+
+            await db.SaveChangesAsync();
+            imported++;
+        }
+
+        TempData["Success"] = $"{imported} soal berhasil diimport.";
+        if (errors.Count > 0)
+            TempData["Error"] = string.Join(" | ", errors);
+
+        return RedirectToAction(nameof(Manage), new { quizId });
+    }
 }

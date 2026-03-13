@@ -127,6 +127,24 @@
             </div>
         }
 
+        <!-- Announcement Link -->
+        @if (Model.IsEnrolled || User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
+        {
+            <div style="margin-top:1.5rem;padding:1.25rem;background:var(--white);border:1px solid var(--border);border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem">
+                <div>
+                    <h3 style="margin:0 0 .25rem">📢 Pengumuman</h3>
+                    <p class="text-muted" style="margin:0;font-size:.85rem">Informasi terbaru dari instruktur</p>
+                </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                    @if (User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
+                    {
+                        <a asp-controller="Announcement" asp-action="Create" asp-route-courseId="@Model.Course.Id" class="btn btn-primary btn-sm">+ Buat</a>
+                    }
+                    <a asp-controller="Announcement" asp-action="Course" asp-route-courseId="@Model.Course.Id" class="btn btn-outline btn-sm">Lihat Semua</a>
+                </div>
+            </div>
+        }
+
         <!-- Forum Link -->
         @if (Model.IsEnrolled || User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
         {
@@ -146,6 +164,7 @@
                 <a asp-action="Edit" asp-route-id="@Model.Course.Id" class="btn btn-outline">Edit Kursus</a>
                 <a asp-controller="Module" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-primary">Kelola Modul</a>
                 <a asp-controller="Assignment" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">Kelola Tugas</a>
+                <a asp-controller="Quiz" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">Kelola Quiz</a>
             </div>
         }
     </div>
