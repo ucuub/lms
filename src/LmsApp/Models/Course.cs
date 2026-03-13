@@ -18,4 +18,5 @@ public class Course
     public ICollection<CourseModule> Modules { get; set; } = [];
     public ICollection<Quiz> Quizzes { get; set; } = [];
     public ICollection<Announcement> Announcements { get; set; } = [];
+    public ICollection<ForumPost> ForumPosts { get; set; } = [];
 }

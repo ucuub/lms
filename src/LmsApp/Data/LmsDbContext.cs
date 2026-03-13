@@ -20,6 +20,9 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
     public DbSet<AttemptAnswer> AttemptAnswers => Set<AttemptAnswer>();
 
+    // Forum
+    public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
+
     // Engagement
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<CourseProgress> CourseProgresses => Set<CourseProgress>();
@@ -42,6 +45,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasMany(c => c.Modules).WithOne(m => m.Course).HasForeignKey(m => m.CourseId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(c => c.Quizzes).WithOne(q => q.Course).HasForeignKey(q => q.CourseId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(c => c.Announcements).WithOne(a => a.Course).HasForeignKey(a => a.CourseId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(c => c.ForumPosts).WithOne(f => f.Course).HasForeignKey(f => f.CourseId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Enrollment
@@ -122,6 +126,19 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         modelBuilder.Entity<CalendarEvent>(e =>
         {
             e.HasKey(ce => ce.Id);
+        });
+
+        // Forum
+        modelBuilder.Entity<ForumPost>(e =>
+        {
+            e.HasKey(f => f.Id);
+            e.Property(f => f.Title).HasMaxLength(300);
+            e.Property(f => f.UserId).HasMaxLength(100).IsRequired();
+            e.HasOne(f => f.Parent)
+                .WithMany(f => f.Replies)
+                .HasForeignKey(f => f.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(f => new { f.CourseId, f.ParentId, f.CreatedAt });
         });
 
         // Notification

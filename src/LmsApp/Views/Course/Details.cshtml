@@ -105,11 +105,24 @@
             </div>
         }
 
+        <!-- Forum Link -->
+        @if (Model.IsEnrolled || User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
+        {
+            <div style="margin-top:2rem;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+                <h3 style="margin:0 0 .5rem">💬 Forum Diskusi</h3>
+                <p class="text-muted" style="margin:0 0 1rem;font-size:.9rem">Ajukan pertanyaan dan diskusi bersama peserta lain.</p>
+                <a asp-controller="Forum" asp-action="Index" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">
+                    Buka Forum
+                </a>
+            </div>
+        }
+
         <!-- Edit button for instructor -->
         @if (User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
         {
             <div class="instructor-actions">
                 <a asp-action="Edit" asp-route-id="@Model.Course.Id" class="btn btn-outline">Edit Kursus</a>
+                <a asp-controller="Module" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-primary">Kelola Modul</a>
             </div>
         }
     </div>
