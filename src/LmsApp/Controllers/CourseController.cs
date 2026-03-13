@@ -11,18 +11,45 @@ namespace LmsApp.Controllers;
 public class CourseController(LmsDbContext db) : Controller
 {
     // GET: /Course
-    public async Task<IActionResult> Index(string? search)
+    public async Task<IActionResult> Index(string? search, string? category, string? level, string? sort)
     {
-        var query = db.Courses.Where(c => c.IsPublished).AsQueryable();
+        var query = db.Courses
+            .Where(c => c.IsPublished)
+            .Include(c => c.Enrollments)
+            .Include(c => c.Reviews)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(c => c.Title.Contains(search) || c.Description.Contains(search));
+            query = query.Where(c => c.Title.Contains(search)
+                               || c.Description.Contains(search)
+                               || c.InstructorName.Contains(search));
 
-        var courses = await query
-            .OrderByDescending(c => c.CreatedAt)
-            .ToListAsync();
+        if (!string.IsNullOrWhiteSpace(category) && category != "all")
+            query = query.Where(c => c.Category == category);
 
-        ViewBag.Search = search;
+        if (!string.IsNullOrWhiteSpace(level) && level != "all")
+            query = query.Where(c => c.Level == level);
+
+        var courses = await query.ToListAsync();
+
+        // Sort in-memory (Reviews average can't easily translate to SQL in some providers)
+        courses = sort switch
+        {
+            "popular" => courses.OrderByDescending(c => c.Enrollments.Count).ToList(),
+            "rating"  => courses.OrderByDescending(c => c.Reviews.Any() ? c.Reviews.Average(r => r.Rating) : 0).ToList(),
+            "oldest"  => courses.OrderBy(c => c.CreatedAt).ToList(),
+            _         => courses.OrderByDescending(c => c.CreatedAt).ToList()
+        };
+
+        var categories = await db.Courses
+            .Where(c => c.IsPublished && c.Category != null)
+            .Select(c => c.Category!).Distinct().OrderBy(c => c).ToListAsync();
+
+        ViewBag.Search     = search;
+        ViewBag.Category   = category;
+        ViewBag.Level      = level;
+        ViewBag.Sort       = sort;
+        ViewBag.Categories = categories;
         return View(courses);
     }
 
@@ -32,6 +59,7 @@ public class CourseController(LmsDbContext db) : Controller
         var course = await db.Courses
             .Include(c => c.Modules.OrderBy(m => m.Order))
             .Include(c => c.Assignments)
+            .Include(c => c.Reviews.OrderByDescending(r => r.CreatedAt))
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (course is null) return NotFound();
@@ -40,6 +68,8 @@ public class CourseController(LmsDbContext db) : Controller
         var isEnrolled = await db.Enrollments
             .AnyAsync(e => e.CourseId == id && e.UserId == userId);
 
+        var userReview = course.Reviews.FirstOrDefault(r => r.UserId == userId);
+
         var vm = new CourseDetailsViewModel
         {
             Course = course,
@@ -47,6 +77,9 @@ public class CourseController(LmsDbContext db) : Controller
             EnrollmentCount = await db.Enrollments.CountAsync(e => e.CourseId == id)
         };
 
+        ViewBag.UserReview  = userReview;
+        ViewBag.AvgRating   = course.Reviews.Any() ? Math.Round(course.Reviews.Average(r => r.Rating), 1) : (double?)null;
+        ViewBag.ReviewCount = course.Reviews.Count;
         return View(vm);
     }
 
@@ -95,6 +128,8 @@ public class CourseController(LmsDbContext db) : Controller
         {
             Title = vm.Title,
             Description = vm.Description,
+            Category = vm.Category,
+            Level = vm.Level,
             InstructorId = User.FindFirst("sub")?.Value ?? string.Empty,
             InstructorName = User.Identity?.Name ?? string.Empty,
             IsPublished = vm.IsPublished
@@ -142,6 +177,8 @@ public class CourseController(LmsDbContext db) : Controller
 
         course.Title = vm.Title;
         course.Description = vm.Description;
+        course.Category = vm.Category;
+        course.Level = vm.Level;
         course.IsPublished = vm.IsPublished;
         course.UpdatedAt = DateTime.UtcNow;
 

@@ -90,12 +90,11 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// ── Auto-migrate on startup (development only) ────────────────────────────────
-if (app.Environment.IsDevelopment())
+// ── Auto-create schema on startup ─────────────────────────────────────────────
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
-    db.Database.Migrate();
+    db.Database.EnsureCreated();
 }
 
 app.Run();

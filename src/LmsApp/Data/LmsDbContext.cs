@@ -25,6 +25,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
 
     // Forum
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
+    public DbSet<CourseReview> CourseReviews => Set<CourseReview>();
 
     // Engagement
     public DbSet<Announcement> Announcements => Set<Announcement>();
@@ -58,6 +59,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasMany(c => c.Quizzes).WithOne(q => q.Course).HasForeignKey(q => q.CourseId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(c => c.Announcements).WithOne(a => a.Course).HasForeignKey(a => a.CourseId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(c => c.ForumPosts).WithOne(f => f.Course).HasForeignKey(f => f.CourseId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(c => c.Reviews).WithOne(r => r.Course).HasForeignKey(r => r.CourseId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Enrollment
@@ -138,6 +140,14 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         modelBuilder.Entity<CalendarEvent>(e =>
         {
             e.HasKey(ce => ce.Id);
+        });
+
+        // CourseReview
+        modelBuilder.Entity<CourseReview>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.HasIndex(r => new { r.CourseId, r.UserId }).IsUnique();
+            e.Property(r => r.UserId).HasMaxLength(100).IsRequired();
         });
 
         // Forum

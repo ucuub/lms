@@ -1,14 +1,16 @@
 @model CourseCreateViewModel
 @{
-    ViewData["Title"] = "Buat Kursus Baru";
+    ViewData["Title"] = "Edit Kursus";
+    int courseId = (int)ViewBag.CourseId;
+    var levelOptions = new[] { "Semua", "Pemula", "Menengah", "Lanjutan" };
 }
 
 <section class="form-page">
     <div class="container">
         <div class="form-card">
-            <h1>Buat Kursus Baru</h1>
+            <h1>Edit Kursus</h1>
 
-            <form asp-action="Create" method="post">
+            <form asp-action="Edit" asp-route-id="@courseId" method="post">
                 @Html.AntiForgeryToken()
 
                 <div class="form-group">
@@ -32,10 +34,10 @@
                     <div class="form-group">
                         <label asp-for="Level" class="form-label">Tingkat Kesulitan</label>
                         <select asp-for="Level" class="form-control">
-                            <option value="Semua">Semua</option>
-                            <option value="Pemula">Pemula</option>
-                            <option value="Menengah">Menengah</option>
-                            <option value="Lanjutan">Lanjutan</option>
+                            @foreach (var lv in levelOptions)
+                            {
+                                <option value="@lv" @(Model.Level == lv ? "selected" : "")>@lv</option>
+                            }
                         </select>
                     </div>
                 </div>
@@ -43,13 +45,13 @@
                 <div class="form-group">
                     <label class="form-check">
                         <input asp-for="IsPublished" type="checkbox" class="form-check-input" />
-                        <span class="form-label">Publikasikan sekarang</span>
+                        <span class="form-label">Publikasikan kursus</span>
                     </label>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Buat Kursus</button>
-                    <a asp-action="Index" class="btn btn-outline">Batal</a>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    <a asp-action="Details" asp-route-id="@courseId" class="btn btn-outline">Batal</a>
                 </div>
             </form>
         </div>

@@ -157,6 +157,101 @@
             </div>
         }
 
+        <!-- Rating & Review Section -->
+        <div class="review-section" style="margin-top:2rem">
+            <h2>Ulasan Kursus</h2>
+
+            @{
+                double? avgRating = ViewBag.AvgRating as double?;
+                int reviewCount = (int)(ViewBag.ReviewCount ?? 0);
+            }
+
+            @if (reviewCount > 0)
+            {
+                <div class="review-summary">
+                    <div class="review-avg-score">@(avgRating?.ToString("0.0"))</div>
+                    <div>
+                        <div class="stars-display lg">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <span class="star @(s <= Math.Round(avgRating ?? 0) ? "filled" : "")">★</span>
+                            }
+                        </div>
+                        <div class="text-muted" style="font-size:.85rem">@reviewCount ulasan</div>
+                    </div>
+                </div>
+            }
+
+            <!-- Write/Edit Review (enrolled users only) -->
+            @if (Model.IsEnrolled)
+            {
+                var existing = ViewBag.UserReview as LmsApp.Models.CourseReview;
+                <div class="review-form-card">
+                    <h4>@(existing != null ? "Edit Ulasanmu" : "Tulis Ulasan")</h4>
+                    <form asp-controller="Review" asp-action="Submit" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="courseId" value="@Model.Course.Id" />
+
+                        <div class="star-picker" id="starPicker">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <span class="star-pick @(existing != null && s <= existing.Rating ? "picked" : "")"
+                                      data-val="@s">★</span>
+                            }
+                        </div>
+                        <input type="hidden" name="rating" id="ratingInput" value="@(existing?.Rating ?? 3)" />
+
+                        <textarea name="comment" class="form-control" rows="3" placeholder="Ceritakan pengalamanmu..." style="margin-top:.75rem">@(existing?.Comment)</textarea>
+
+                        <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                @(existing != null ? "Perbarui Ulasan" : "Kirim Ulasan")
+                            </button>
+                            @if (existing != null)
+                            {
+                                <form asp-controller="Review" asp-action="Delete" method="post" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@existing.Id" />
+                                    <button type="submit" class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Hapus ulasan?')">Hapus</button>
+                                </form>
+                            }
+                        </div>
+                    </form>
+                </div>
+            }
+
+            <!-- Review List -->
+            @if (Model.Course.Reviews.Any())
+            {
+                <div class="review-list" style="margin-top:1.5rem">
+                    @foreach (var review in Model.Course.Reviews)
+                    {
+                        <div class="review-card">
+                            <div class="review-header">
+                                <span class="review-author">@review.UserName</span>
+                                <div class="stars-display sm">
+                                    @for (int s = 1; s <= 5; s++)
+                                    {
+                                        <span class="star @(s <= review.Rating ? "filled" : "")">★</span>
+                                    }
+                                </div>
+                                <span class="text-muted" style="font-size:.78rem">@review.CreatedAt.ToString("dd MMM yyyy")</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(review.Comment))
+                            {
+                                <p class="review-comment">@review.Comment</p>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted" style="margin-top:1rem">Belum ada ulasan untuk kursus ini.</p>
+            }
+        </div>
+
         <!-- Edit button for instructor -->
         @if (User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin"))
         {
@@ -165,6 +260,7 @@
                 <a asp-controller="Module" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-primary">Kelola Modul</a>
                 <a asp-controller="Assignment" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">Kelola Tugas</a>
                 <a asp-controller="Quiz" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">Kelola Quiz</a>
+                <a asp-controller="Analytics" asp-action="Course" asp-route-id="@Model.Course.Id" class="btn btn-outline">📊 Analitik</a>
             </div>
         }
     </div>

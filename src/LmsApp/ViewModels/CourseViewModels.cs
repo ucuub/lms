@@ -19,5 +19,7 @@ public class CourseCreateViewModel
     [Required(ErrorMessage = "Deskripsi wajib diisi")]
     public string Description { get; set; } = string.Empty;
 
+    public string? Category { get; set; }
+    public string Level { get; set; } = "Semua";
     public bool IsPublished { get; set; } = false;
 }

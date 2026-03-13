@@ -89,4 +89,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  // ── 7. Star picker (review form) ──────────────────────────────
+  const picker = document.getElementById('starPicker');
+  if (picker) {
+    const stars = picker.querySelectorAll('.star-pick');
+    const input = document.getElementById('ratingInput');
+    stars.forEach(function (star, idx) {
+      star.addEventListener('mouseenter', function () {
+        stars.forEach((s, i) => s.classList.toggle('picked', i <= idx));
+      });
+      star.addEventListener('mouseleave', function () {
+        const val = parseInt(input.value || '3');
+        stars.forEach((s, i) => s.classList.toggle('picked', i < val));
+      });
+      star.addEventListener('click', function () {
+        const val = parseInt(star.dataset.val);
+        input.value = val;
+        stars.forEach((s, i) => s.classList.toggle('picked', i < val));
+      });
+    });
+  }
+
 });
