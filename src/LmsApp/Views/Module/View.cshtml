@@ -1,0 +1,121 @@
+@model CourseModule
+@{
+    ViewData["Title"] = Model.Title;
+    var prevModule = ViewBag.PrevModule;
+    var nextModule = ViewBag.NextModule;
+    bool isCompleted = (bool)ViewBag.IsCompleted;
+    string? embedUrl = ViewBag.EmbedUrl as string;
+}
+
+<div class="module-view-layout">
+    <!-- Sidebar: Daftar Modul -->
+    <aside class="module-sidebar">
+        <div class="module-sidebar-header">
+            <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.CourseId" class="back-link">← Kembali</a>
+            <h3>@Model.Course.Title</h3>
+        </div>
+        <div id="module-sidebar-list" hx-get="/Progress/Course/@Model.CourseId" hx-trigger="load">
+            <p class="text-muted" style="padding:1rem;font-size:.85rem">Memuat daftar modul...</p>
+        </div>
+    </aside>
+
+    <!-- Main: Konten Modul -->
+    <main class="module-main">
+        <div class="module-content-header">
+            <h1>@Model.Title</h1>
+            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+                @if (Model.DurationMinutes.HasValue)
+                {
+                    <span class="text-muted" style="font-size:.9rem">⏱ @Model.DurationMinutes menit</span>
+                }
+                <span class="badge @(Model.ContentType == ModuleContentType.Video ? "badge-info" : Model.ContentType == ModuleContentType.Mixed ? "badge-success" : "badge-warning")">
+                    @(Model.ContentType == ModuleContentType.Video ? "🎬 Video" : Model.ContentType == ModuleContentType.Mixed ? "📖🎬 Campuran" : "📖 Teks")
+                </span>
+                @if (isCompleted)
+                {
+                    <span class="badge badge-success">✓ Selesai</span>
+                }
+            </div>
+        </div>
+
+        <!-- Video Player -->
+        @if (!string.IsNullOrEmpty(embedUrl))
+        {
+            <div class="video-embed-container">
+                <iframe src="@embedUrl" allowfullscreen loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+                </iframe>
+            </div>
+        }
+
+        <!-- Konten Teks (Quill HTML) -->
+        @if (!string.IsNullOrWhiteSpace(Model.Content) && Model.Content != "<p><br></p>")
+        {
+            <div class="module-rich-content ql-editor">
+                @Html.Raw(Model.Content)
+            </div>
+        }
+
+        <!-- Lampiran -->
+        @if (Model.Attachments.Any())
+        {
+            <div class="module-attachments">
+                <h3>📎 Lampiran</h3>
+                <div class="attachment-grid">
+                    @foreach (var att in Model.Attachments)
+                    {
+                        <a href="@att.FileUrl" target="_blank" class="attachment-item">
+                            <span class="att-icon">
+                                @(att.FileType == ".pdf" ? "📄" : att.FileType is ".doc" or ".docx" ? "📝" : att.FileType == ".pptx" ? "📊" : att.FileType == ".zip" ? "🗜️" : "📎")
+                            </span>
+                            <div class="att-info">
+                                <span class="att-name">@att.FileName</span>
+                                <span class="att-size">@((att.FileSizeBytes / 1024.0).ToString("F0")) KB</span>
+                            </div>
+                            <span class="att-download">⬇</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Navigasi + Tandai Selesai -->
+        <div class="module-footer-nav">
+            <div>
+                @if (prevModule is not null)
+                {
+                    <a asp-action="View" asp-route-id="@prevModule.Id" class="btn btn-outline">
+                        ← @prevModule.Title
+                    </a>
+                }
+            </div>
+
+            <div style="display:flex;gap:1rem;align-items:center">
+                @if (!isCompleted)
+                {
+                    <form asp-controller="Progress" asp-action="MarkModuleComplete" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="moduleId" value="@Model.Id" />
+                        <input type="hidden" name="courseId" value="@Model.CourseId" />
+                        <button type="submit" class="btn btn-success">✓ Tandai Selesai</button>
+                    </form>
+                }
+                else
+                {
+                    <span class="btn" style="background:#dcfce7;color:#166534;border-color:#86efac;cursor:default">✓ Sudah Selesai</span>
+                }
+
+                @if (nextModule is not null)
+                {
+                    <a asp-action="View" asp-route-id="@nextModule.Id" class="btn btn-primary">
+                        @nextModule.Title →
+                    </a>
+                }
+            </div>
+        </div>
+    </main>
+</div>
+
+@section Scripts {
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+}

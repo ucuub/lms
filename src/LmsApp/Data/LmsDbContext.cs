@@ -8,6 +8,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     // Core
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseModule> CourseModules => Set<CourseModule>();
+    public DbSet<ModuleAttachment> ModuleAttachments => Set<ModuleAttachment>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Submission> Submissions => Set<Submission>();
@@ -48,6 +49,23 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(en => en.Id);
             e.HasIndex(en => new { en.CourseId, en.UserId }).IsUnique();
+        });
+
+        // CourseModule
+        modelBuilder.Entity<CourseModule>(e =>
+        {
+            e.HasKey(m => m.Id);
+            e.Property(m => m.Title).HasMaxLength(200).IsRequired();
+            e.HasMany(m => m.Attachments)
+                .WithOne(a => a.Module)
+                .HasForeignKey(a => a.ModuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ModuleAttachment>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.FileName).HasMaxLength(255).IsRequired();
         });
 
         // Quiz
