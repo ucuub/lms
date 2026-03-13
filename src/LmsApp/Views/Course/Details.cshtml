@@ -85,20 +85,42 @@
         </div>
 
         <!-- Assignments -->
-        @if (Model.IsEnrolled && Model.Course.Assignments.Any())
+        @if (Model.Course.Assignments.Any() && (Model.IsEnrolled || User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin")))
         {
+            bool isInstr = User.FindFirst("sub")?.Value == Model.Course.InstructorId || User.IsInRole("admin");
             <div class="assignments-section">
                 <h2>Tugas</h2>
                 <div class="assignment-list">
                     @foreach (var assignment in Model.Course.Assignments)
                     {
+                        bool isOverdue = assignment.DueDate.HasValue && DateTime.UtcNow > assignment.DueDate.Value;
                         <div class="assignment-card">
-                            <h4>@assignment.Title</h4>
-                            <p>@assignment.Description</p>
-                            @if (assignment.DueDate.HasValue)
-                            {
-                                <span class="due-date">Tenggat: @assignment.DueDate.Value.ToString("dd MMM yyyy")</span>
-                            }
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem">
+                                <div>
+                                    <h4>@assignment.Title</h4>
+                                    <p>@assignment.Description</p>
+                                    @if (assignment.DueDate.HasValue)
+                                    {
+                                        <span class="due-date" style="color:@(isOverdue ? "var(--danger)" : "inherit")">
+                                            Tenggat: @assignment.DueDate.Value.ToString("dd MMM yyyy, HH:mm")
+                                            @if (isOverdue) { <strong> (Terlambat)</strong> }
+                                        </span>
+                                    }
+                                    <div class="text-muted" style="font-size:.8rem;margin-top:.25rem">Nilai maksimum: @assignment.MaxScore</div>
+                                </div>
+                                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                                    @if (isInstr)
+                                    {
+                                        <a asp-controller="Submission" asp-action="Grade" asp-route-assignmentId="@assignment.Id"
+                                           class="btn btn-sm btn-outline">📋 Lihat Submission</a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="Submission" asp-action="Submit" asp-route-assignmentId="@assignment.Id"
+                                           class="btn btn-sm btn-primary">📤 Kumpulkan</a>
+                                    }
+                                </div>
+                            </div>
                         </div>
                     }
                 </div>
@@ -123,6 +145,7 @@
             <div class="instructor-actions">
                 <a asp-action="Edit" asp-route-id="@Model.Course.Id" class="btn btn-outline">Edit Kursus</a>
                 <a asp-controller="Module" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-primary">Kelola Modul</a>
+                <a asp-controller="Assignment" asp-action="Manage" asp-route-courseId="@Model.Course.Id" class="btn btn-outline">Kelola Tugas</a>
             </div>
         }
     </div>

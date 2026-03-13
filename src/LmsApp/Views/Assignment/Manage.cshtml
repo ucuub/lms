@@ -1,0 +1,71 @@
+@model LmsApp.Models.Course
+@{
+    ViewData["Title"] = "Kelola Tugas - " + Model.Title;
+}
+
+<section class="page-header">
+    <div class="container">
+        <a asp-controller="Course" asp-action="Details" asp-route-id="@Model.Id">← @Model.Title</a>
+        <h1>📋 Kelola Tugas</h1>
+        <p class="text-muted">@Model.Assignments.Count tugas dibuat</p>
+    </div>
+</section>
+
+<div class="container" style="padding:2rem 1.5rem;max-width:900px">
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem">
+        <a asp-action="Create" asp-route-courseId="@Model.Id" class="btn btn-primary">+ Tambah Tugas</a>
+    </div>
+
+    @if (!Model.Assignments.Any())
+    {
+        <div class="forum-empty">
+            <p style="font-size:2rem">📋</p>
+            <p>Belum ada tugas. Buat tugas pertama untuk kursus ini.</p>
+        </div>
+    }
+    else
+    {
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+            @foreach (var a in Model.Assignments)
+            {
+                bool isOverdue = a.DueDate.HasValue && DateTime.UtcNow > a.DueDate.Value;
+                int submissionCount = a.Submissions.Count;
+                <div style="background:white;border:1px solid var(--border);border-radius:10px;padding:1.25rem">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem">
+                        <div>
+                            <h3 style="font-size:1rem;font-weight:700;margin-bottom:.25rem">@a.Title</h3>
+                            <p class="text-muted" style="font-size:.85rem;margin-bottom:.35rem">@a.Description</p>
+                            <div style="display:flex;gap:1rem;font-size:.8rem;flex-wrap:wrap">
+                                @if (a.DueDate.HasValue)
+                                {
+                                    <span style="color:@(isOverdue ? "var(--danger)" : "var(--text-muted)")">
+                                        📅 @a.DueDate.Value.ToString("dd MMM yyyy, HH:mm")
+                                        @if (isOverdue) { <strong>(Tutup)</strong> }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">📅 Tanpa tenggat</span>
+                                }
+                                <span class="text-muted">🏆 Maks. @a.MaxScore poin</span>
+                                <span class="text-muted">📤 @submissionCount submission</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                            <a asp-controller="Submission" asp-action="Grade" asp-route-assignmentId="@a.Id"
+                               class="btn btn-sm btn-outline">📋 Nilai</a>
+                            <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-outline">✎ Edit</a>
+                            <form asp-action="Delete" method="post" style="display:inline"
+                                  onsubmit="return confirm('Hapus tugas ini? Semua submission akan terhapus.')">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <button type="submit" class="btn btn-sm" style="background:#ef4444;color:white;border:none">✕ Hapus</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
