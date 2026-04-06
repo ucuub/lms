@@ -47,7 +47,7 @@ public class SubmissionController(LmsDbContext db, IFileUploadService fileUpload
         string? fileUrl = null;
         if (file is not null && file.Length > 0)
         {
-            if (!fileUpload.IsValidFile(file, [".pdf", ".doc", ".docx", ".zip", ".png", ".jpg"]))
+            if (!fileUpload.IsValidFile(file, [".pdf", ".doc", ".docx", ".zip", ".png", ".jpg"], 10 * 1024 * 1024))
             {
                 TempData["Error"] = "Format file tidak didukung atau ukuran melebihi 10MB.";
                 return RedirectToAction(nameof(Submit), new { assignmentId });

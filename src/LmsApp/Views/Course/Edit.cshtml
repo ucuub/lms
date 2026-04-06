@@ -36,7 +36,7 @@
                         <select asp-for="Level" class="form-control">
                             @foreach (var lv in levelOptions)
                             {
-                                <option value="@lv" @(Model.Level == lv ? "selected" : "")>@lv</option>
+                                <option value="@lv" selected="@(Model.Level == lv ? "selected" : null)">@lv</option>
                             }
                         </select>
                     </div>

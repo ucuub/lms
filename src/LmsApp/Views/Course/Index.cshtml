@@ -82,10 +82,10 @@
                     <div class="filter-group">
                         <label class="filter-label">Urutkan</label>
                         <select name="sort" class="form-control" onchange="this.form.submit()">
-                            <option value="newest" @(activeSort == "newest" ? "selected" : "")>Terbaru</option>
-                            <option value="oldest" @(activeSort == "oldest" ? "selected" : "")>Terlama</option>
-                            <option value="popular" @(activeSort == "popular" ? "selected" : "")>Terpopuler</option>
-                            <option value="rating" @(activeSort == "rating" ? "selected" : "")>Rating Tertinggi</option>
+                            <option value="newest" selected="@(activeSort == "newest" ? "selected" : null)">Terbaru</option>
+                            <option value="oldest" selected="@(activeSort == "oldest" ? "selected" : null)">Terlama</option>
+                            <option value="popular" selected="@(activeSort == "popular" ? "selected" : null)">Terpopuler</option>
+                            <option value="rating" selected="@(activeSort == "rating" ? "selected" : null)">Rating Tertinggi</option>
                         </select>
                     </div>
 
