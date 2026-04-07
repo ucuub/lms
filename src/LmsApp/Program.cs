@@ -159,11 +159,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// ── Auto-create schema on startup ─────────────────────────────────────────────
+// ── Auto-create schema + seed data on startup ─────────────────────────────────
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
     db.Database.EnsureCreated();
+    await DataSeeder.SeedAsync(db);
 }
 
 app.Run();
