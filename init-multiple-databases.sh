@@ -2,12 +2,14 @@
 set -e
 
 if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
-    echo "Multiple database creation requested: $POSTGRES_MULTIPLE_DATABASES"
+    echo "Creating additional databases: $POSTGRES_MULTIPLE_DATABASES"
     for db in $(echo $POSTGRES_MULTIPLE_DATABASES | tr ',' ' '); do
-        echo "Creating database: $db"
-        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
-            CREATE DATABASE $db;
-EOSQL
+        echo "  → Creating database: $db"
+        psql --username "$POSTGRES_USER" --dbname "postgres" \
+            -c "SELECT 1 FROM pg_database WHERE datname='$db'" \
+            | grep -q 1 || \
+        psql --username "$POSTGRES_USER" --dbname "postgres" \
+            -c "CREATE DATABASE $db OWNER $POSTGRES_USER;"
     done
-    echo "Multiple databases created"
+    echo "Done."
 fi
