@@ -85,6 +85,29 @@
         <CourseCard v-for="course in myCourses" :key="course.id" :course="course" />
       </div>
     </template>
+
+    <!-- Admin Dashboard -->
+    <template v-else-if="auth.isAdmin">
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div class="card p-5">
+          <p class="text-sm text-gray-500">Total Kursus</p>
+          <p class="text-3xl font-bold text-blue-600 mt-1">{{ stats.totalCourses }}</p>
+        </div>
+        <div class="card p-5">
+          <p class="text-sm text-gray-500">Total Siswa</p>
+          <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.totalStudents }}</p>
+        </div>
+        <div class="card p-5">
+          <p class="text-sm text-gray-500">Total Kursus</p>
+          <p class="text-3xl font-bold text-purple-600 mt-1">{{ stats.totalCourses }}</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <RouterLink to="/admin/users" class="btn-primary">Kelola Pengguna</RouterLink>
+        <RouterLink to="/admin/courses" class="btn-secondary">Kelola Kursus</RouterLink>
+      </div>
+    </template>
   </div>
 </template>
 

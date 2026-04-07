@@ -105,6 +105,19 @@ public class AuthController(LmsDbContext db, IConfiguration config) : Controller
         return Ok(ToDto(user));
     }
 
+    // ── Debug (Development only) ──────────────────────────────────────────────
+
+    [HttpGet("debug-claims")]
+    public IActionResult DebugClaims([FromServices] IWebHostEnvironment env)
+    {
+        if (!env.IsDevelopment())
+            return NotFound();
+
+        var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+        var role = KeycloakRoleExtractor.Extract(User, KeycloakClientId);
+        return Ok(new { extractedRole = role, clientId = KeycloakClientId, claims });
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private static UserDto ToDto(AppUser u) =>
