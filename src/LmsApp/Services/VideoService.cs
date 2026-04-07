@@ -13,9 +13,9 @@ public static class VideoService
         @"vimeo\.com\/(?:video\/)?(\d+)",
         RegexOptions.Compiled);
 
-    public static (string? EmbedId, VideoProvider? Provider) Parse(string? url)
+    public static (string? EmbedId, VideoProvider Provider) Parse(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url)) return (null, null);
+        if (string.IsNullOrWhiteSpace(url)) return (null, VideoProvider.None);
 
         var ytMatch = YoutubeRegex.Match(url);
         if (ytMatch.Success)
@@ -25,17 +25,17 @@ public static class VideoService
         if (vimeoMatch.Success)
             return (vimeoMatch.Groups[1].Value, VideoProvider.Vimeo);
 
-        return (null, null);
+        return (null, VideoProvider.None);
     }
 
-    public static string? GetEmbedUrl(string? embedId, VideoProvider? provider) => provider switch
+    public static string? GetEmbedUrl(string? embedId, VideoProvider provider) => provider switch
     {
         VideoProvider.YouTube => $"https://www.youtube.com/embed/{embedId}?rel=0",
         VideoProvider.Vimeo => $"https://player.vimeo.com/video/{embedId}",
         _ => null
     };
 
-    public static string? GetThumbnailUrl(string? embedId, VideoProvider? provider) => provider switch
+    public static string? GetThumbnailUrl(string? embedId, VideoProvider provider) => provider switch
     {
         VideoProvider.YouTube => $"https://img.youtube.com/vi/{embedId}/hqdefault.jpg",
         _ => null

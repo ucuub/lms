@@ -1,7 +1,0 @@
-@model ModuleCreateViewModel
-@{
-    var course = ViewBag.Course as Course;
-    ViewData["Title"] = "Tambah Modul";
-    bool isEdit = false;
-}
-@await Html.PartialAsync("_ModuleForm", (Model, isEdit, course!))

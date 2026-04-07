@@ -7,8 +7,9 @@ public class AttemptAnswer
     public int QuestionId { get; set; }
     public int? SelectedOptionId { get; set; }
     public string? EssayAnswer { get; set; }
-    public int? ManualScore { get; set; }     // for essay grading
-    public bool IsCorrect { get; set; } = false;
+    public int? EarnedPoints { get; set; }
+    public bool? IsCorrect { get; set; }     // null = not graded yet (essay)
+    public string? Feedback { get; set; }
 
     // Navigation
     public QuizAttempt Attempt { get; set; } = null!;

@@ -23,6 +23,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
     public DbSet<AttemptAnswer> AttemptAnswers => Set<AttemptAnswer>();
 
+    // Question Bank
+    public DbSet<QuestionBank> QuestionBank => Set<QuestionBank>();
+    public DbSet<QuestionBankOption> QuestionBankOptions => Set<QuestionBankOption>();
+
     // Forum
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
     public DbSet<CourseReview> CourseReviews => Set<CourseReview>();
@@ -44,7 +48,9 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(u => u.Id);
             e.HasIndex(u => u.UserId).IsUnique();
+            e.HasIndex(u => u.Email).IsUnique();
             e.Property(u => u.UserId).HasMaxLength(100).IsRequired();
+            e.Property(u => u.Email).HasMaxLength(256).IsRequired();
             e.Property(u => u.Role).HasMaxLength(50).HasDefaultValue("student");
         });
 
@@ -104,6 +110,19 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(a => a.Id);
             e.HasMany(a => a.Answers).WithOne(ans => ans.Attempt).HasForeignKey(ans => ans.AttemptId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Question Bank
+        modelBuilder.Entity<QuestionBank>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.Property(q => q.OwnerId).HasMaxLength(100).IsRequired();
+            e.HasMany(q => q.Options).WithOne(o => o.QuestionBank).HasForeignKey(o => o.QuestionBankId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuestionBankOption>(e =>
+        {
+            e.HasKey(o => o.Id);
         });
 
         // Progress

@@ -1,102 +1,163 @@
 using LmsApp.Data;
 using LmsApp.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
-});
 
 // ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<LmsDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── Authentication (Keycloak via OpenID Connect) ──────────────────────────────
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-})
-.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-{
-    options.LoginPath = "/Account/Login";
-    options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-})
-.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
-{
-    var keycloak = builder.Configuration.GetSection("Keycloak");
+// ── Keycloak JWT Authentication ───────────────────────────────────────────────
+var authority = builder.Configuration["Keycloak:Authority"]
+    ?? throw new InvalidOperationException("Keycloak:Authority is not configured.");
+var clientId = builder.Configuration["Keycloak:ClientId"]
+    ?? throw new InvalidOperationException("Keycloak:ClientId is not configured.");
+var allowedClientId = builder.Configuration["Keycloak:AllowedClientId"]
+    ?? throw new InvalidOperationException("Keycloak:AllowedClientId is not configured.");
+var requireHttps = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata", true);
 
-    options.Authority = keycloak["Authority"];
-    options.ClientId = keycloak["ClientId"];
-    options.ClientSecret = keycloak["ClientSecret"];
-    options.ResponseType = OpenIdConnectResponseType.Code;
-
-    options.Scope.Clear();
-    options.Scope.Add("openid");
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-    options.Scope.Add("roles");
-
-    options.SaveTokens = true;
-    options.GetClaimsFromUserInfoEndpoint = true;
-    options.RequireHttpsMetadata = false; // set true in production
-
-    options.TokenValidationParameters.NameClaimType = "preferred_username";
-    options.TokenValidationParameters.RoleClaimType = "roles";
-
-    options.Events = new OpenIdConnectEvents
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        OnRemoteFailure = context =>
+        // Authority otomatis fetch OIDC discovery document dari Keycloak:
+        // - mengambil JWKS untuk verifikasi signature
+        // - mengambil issuer untuk validasi iss claim
+        options.Authority = authority;
+        options.RequireHttpsMetadata = requireHttps;
+
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
-            context.Response.Redirect("/");
-            context.HandleResponse();
-            return Task.CompletedTask;
-        }
-    };
-});
+            // ── Issuer ───────────────────────────────────────────────────────
+            // Authority sudah auto-validate issuer via OIDC discovery.
+            // Kita pin eksplisit sebagai defense-in-depth — token dari realm lain
+            // dengan JWKS yang bocor tidak akan bisa masuk.
+            ValidateIssuer = true,
+            ValidIssuer = authority,    // harus tepat sama dengan iss di token
+
+            // ── Audience ─────────────────────────────────────────────────────
+            // Token harus mengandung "lms-app" di claim aud.
+            // Keycloak perlu dikonfigurasi: dwi-mobile client → Audience mapper
+            // → Included Client Audience: lms-app
+            ValidateAudience = true,
+            ValidAudience = clientId,   // "lms-app"
+
+            // ── Lifetime ─────────────────────────────────────────────────────
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30), // toleransi clock skew antar server
+
+            // ── Claims mapping ───────────────────────────────────────────────
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles",
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                // ── azp (authorized party) ───────────────────────────────────
+                // Setelah iss + aud lolos, pastikan token DIMINTA oleh DWI Mobile.
+                // Ini mencegah token valid dari client lain (mis. Postman langsung
+                // ke Keycloak dengan client lms-app) masuk ke LMS API.
+                var azp = context.Principal?.FindFirst("azp")?.Value;
+                if (string.IsNullOrEmpty(azp) || azp != allowedClientId)
+                {
+                    context.Fail($"Token ditolak: azp '{azp}' bukan client yang diizinkan.");
+                    return Task.CompletedTask;
+                }
+
+                // ── sub (subject) ────────────────────────────────────────────
+                // Pastikan token mengandung identitas user (bukan token mesin).
+                var sub = context.Principal?.FindFirst("sub")?.Value;
+                if (string.IsNullOrEmpty(sub))
+                {
+                    context.Fail("Token ditolak: tidak mengandung 'sub' claim.");
+                }
+
+                return Task.CompletedTask;
+            },
+
+            OnAuthenticationFailed = context =>
+            {
+                // Log detail error tanpa expose ke client
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("JWT authentication failed: {Error}", context.Exception.Message);
+                return Task.CompletedTask;
+            }
+        };
+    });
 
 builder.Services.AddAuthorization();
+
+// ── Claims Transformation (inject LMS role from DB) ───────────────────────────
+builder.Services.AddScoped<IClaimsTransformation, AppUserClaimsTransformation>();
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? ["http://localhost:5173", "http://localhost:3000"];
+        policy.WithOrigins(origins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // ── App Services ──────────────────────────────────────────────────────────────
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
-builder.Services.AddScoped<IUserSyncService, UserSyncService>();
-builder.Services.AddScoped<IClaimsTransformation, AppUserClaimsTransformation>();
 
-// ── MVC ───────────────────────────────────────────────────────────────────────
-builder.Services.AddControllersWithViews();
+// ── Controllers ───────────────────────────────────────────────────────────────
+builder.Services.AddControllers();
+
+// ── Swagger ───────────────────────────────────────────────────────────────────
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "LMS API", Version = "v1" });
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Keycloak access token. Format: Bearer {token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
 // ── Middleware Pipeline ────────────────────────────────────────────────────────
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LMS API v1"));
 }
 
+app.UseCors("Frontend");
 app.UseForwardedHeaders();
 app.UseStaticFiles();
-
-app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapControllers();
 
 // ── Auto-create schema on startup ─────────────────────────────────────────────
 {
