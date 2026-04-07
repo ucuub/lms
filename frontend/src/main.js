@@ -87,8 +87,10 @@ function mountAccessDenied(pinia) {
   keycloak
     .init({
       onLoad,
-      silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
       checkLoginIframe: false,
+      ...(onLoad === 'check-sso' && {
+        silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
+      }),
     })
     .then(async (authenticated) => {
       if (!authenticated) {
