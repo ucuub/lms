@@ -44,6 +44,14 @@ function mountAccessDenied(pinia) {
 ;(async () => {
   const pinia = createPinia()
 
+  // ── LOCAL DEV MODE: bypass Keycloak sepenuhnya ────────────────────────────
+  // Set VITE_MOCK_AUTH=true di frontend/.env.local untuk dev tanpa Keycloak.
+  // Backend harus pakai MockUserContext (X-User-Id/X-User-Role headers).
+  if (import.meta.env.VITE_MOCK_AUTH === 'true') {
+    await syncAndMountApp(pinia)
+    return
+  }
+
   // ── Cek apakah ada one-time auth code dari DWI Mobile ────────────────────
   const urlParams  = new URLSearchParams(window.location.search)
   const lmsCode    = urlParams.get('_lms_auth')
