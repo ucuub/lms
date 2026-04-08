@@ -143,8 +143,9 @@
 
           <div v-else-if="course.isEnrolled" class="space-y-3">
             <div class="alert-success text-center">✓ Sudah terdaftar</div>
-            <RouterLink :to="`/courses/${course.id}/gradebook`" class="btn-outline w-full">Lihat Nilai</RouterLink>
-            <RouterLink :to="`/courses/${course.id}/forum`" class="btn-outline w-full">Forum Diskusi</RouterLink>
+            <RouterLink :to="`/courses/${course.id}/gradebook`" class="btn-outline w-full">📊 Lihat Nilai</RouterLink>
+            <RouterLink :to="`/courses/${course.id}/forum`" class="btn-outline w-full">💬 Forum Diskusi</RouterLink>
+            <RouterLink :to="`/courses/${course.id}/certificate`" class="btn-outline w-full">🎓 Sertifikat</RouterLink>
           </div>
 
           <div v-if="isMyOwnCourse" class="space-y-2 mt-3">

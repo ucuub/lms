@@ -38,6 +38,12 @@ const routes = [
       // Gradebook
       { path: 'courses/:courseId/gradebook', name: 'Gradebook', component: () => import('@/views/gradebook/GradebookView.vue') },
 
+      // Certificates & Completion
+      { path: 'courses/:courseId/certificate', name: 'Certificate', component: () => import('@/views/certificates/CertificateView.vue') },
+
+      // Calendar
+      { path: 'calendar', name: 'Calendar', component: () => import('@/views/calendar/CalendarView.vue') },
+
       // Notifications
       { path: 'notifications', name: 'Notifications', component: () => import('@/views/notifications/NotificationsView.vue') },
 
