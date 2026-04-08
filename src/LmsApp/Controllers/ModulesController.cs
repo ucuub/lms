@@ -11,9 +11,13 @@ namespace LmsApp.Controllers;
 [ApiController]
 [Route("api/courses/{courseId:int}/modules")]
 [Authorize]
-public class ModulesController(LmsDbContext db, IFileUploadService fileService) : ControllerBase
+public class ModulesController(
+    LmsDbContext db,
+    IFileUploadService fileService,
+    ICompletionService completionService) : ControllerBase
 {
-    private string UserId => User.FindFirst("userId")?.Value ?? string.Empty;
+    private string UserId   => User.FindFirst("sub")?.Value  ?? string.Empty;
+    private string UserName => User.FindFirst("name")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
 
     [HttpGet]
@@ -70,8 +74,13 @@ public class ModulesController(LmsDbContext db, IFileUploadService fileService) 
                 var totalModules = await db.CourseModules.CountAsync(m => m.CourseId == courseId && m.IsPublished);
                 var doneModules = await db.ModuleProgresses.CountAsync(mp => mp.UserId == UserId && mp.CourseProgress.CourseId == courseId);
                 progress.CompletedModules = doneModules + 1;
-                progress.TotalModules = totalModules;
+                progress.TotalModules     = totalModules;
+                progress.LastAccessedAt   = DateTime.UtcNow;
                 await db.SaveChangesAsync();
+
+                // Setelah progress disimpan, cek apakah course sudah selesai
+                // TryIssueCertificateAsync bersifat idempotent — aman dipanggil setiap kali
+                await completionService.TryIssueCertificateAsync(courseId, UserId, UserName);
             }
         }
 
@@ -228,8 +237,9 @@ public class ModulesController(LmsDbContext db, IFileUploadService fileService) 
     private async Task<bool> IsTeacherOrAdmin(int courseId)
     {
         if (UserRole == "admin") return true;
-        if (UserRole != "teacher") return false;
-        return await db.Courses.AnyAsync(c => c.Id == courseId && c.InstructorId == UserId);
+        if (UserRole == "teacher")
+            return await db.Courses.AnyAsync(c => c.Id == courseId && c.InstructorId == UserId);
+        return false;
     }
 
     private static ModuleContentType DetermineContentType(string? content, string? videoUrl)

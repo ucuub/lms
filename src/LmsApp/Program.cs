@@ -114,6 +114,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
+builder.Services.AddScoped<ICompletionService, CompletionService>();
 
 // ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers();

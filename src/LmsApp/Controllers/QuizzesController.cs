@@ -12,7 +12,7 @@ namespace LmsApp.Controllers;
 [Authorize]
 public class QuizzesController(LmsDbContext db) : ControllerBase
 {
-    private string UserId => User.FindFirst("userId")?.Value ?? string.Empty;
+    private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
 
     // ── Quiz CRUD ─────────────────────────────────────────────────────────────

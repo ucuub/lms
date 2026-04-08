@@ -13,7 +13,7 @@ namespace LmsApp.Controllers;
 [Authorize]
 public class AssignmentsController(LmsDbContext db, IFileUploadService fileService) : ControllerBase
 {
-    private string UserId => User.FindFirst("userId")?.Value ?? string.Empty;
+    private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
     private string UserName => User.FindFirst("name")?.Value ?? string.Empty;
 

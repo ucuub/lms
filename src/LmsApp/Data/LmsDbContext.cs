@@ -12,6 +12,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseSection> CourseSections => Set<CourseSection>();
     public DbSet<CourseModule> CourseModules => Set<CourseModule>();
+    public DbSet<CourseCompletionRule> CourseCompletionRules => Set<CourseCompletionRule>();
     public DbSet<ModuleAttachment> ModuleAttachments => Set<ModuleAttachment>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
@@ -170,7 +171,23 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(c => c.Id);
             e.HasIndex(c => new { c.CourseId, c.UserId }).IsUnique();
+            e.HasIndex(c => c.CertificateNumber).IsUnique();
             e.Property(c => c.CertificateNumber).HasMaxLength(50);
+            e.HasOne(c => c.Course)
+                .WithMany(co => co.Certificates)
+                .HasForeignKey(c => c.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CourseCompletionRule — one-to-one dengan Course
+        modelBuilder.Entity<CourseCompletionRule>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.HasIndex(r => r.CourseId).IsUnique(); // satu rule per course
+            e.HasOne(r => r.Course)
+                .WithOne(c => c.CompletionRule)
+                .HasForeignKey<CourseCompletionRule>(r => r.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Assignment + Submission

@@ -11,7 +11,7 @@ namespace LmsApp.Controllers;
 [Authorize]
 public class NotificationsController(LmsDbContext db) : ControllerBase
 {
-    private string UserId => User.FindFirst("userId")?.Value ?? string.Empty;
+    private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)

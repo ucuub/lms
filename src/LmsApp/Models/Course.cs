@@ -18,7 +18,9 @@ public class Course
     public ICollection<Enrollment> Enrollments { get; set; } = [];
     public ICollection<Assignment> Assignments { get; set; } = [];
     public ICollection<CourseModule> Modules { get; set; } = [];
-    public ICollection<CourseSection> Sections { get; set; } = [];   // NEW: grouped modules
+    public ICollection<CourseSection> Sections { get; set; } = [];
+    public ICollection<Certificate> Certificates { get; set; } = [];
+    public CourseCompletionRule? CompletionRule { get; set; }
     public ICollection<Quiz> Quizzes { get; set; } = [];
     public ICollection<Announcement> Announcements { get; set; } = [];
     public ICollection<ForumPost> ForumPosts { get; set; } = [];

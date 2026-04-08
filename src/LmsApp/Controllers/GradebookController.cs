@@ -14,7 +14,7 @@ namespace LmsApp.Controllers;
 [Authorize]
 public class GradebookController(LmsDbContext db) : ControllerBase
 {
-    private string UserId => User.FindFirst("userId")?.Value ?? string.Empty;
+    private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
 
     // Teacher: get all students' grades
