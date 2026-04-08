@@ -11,7 +11,7 @@ namespace LmsApp.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
-public class AssignmentsController(LmsDbContext db, IFileUploadService fileService) : ControllerBase
+public class AssignmentsController(LmsDbContext db, IFileUploadService fileService, IGradebookService gradebook) : ControllerBase
 {
     private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
@@ -66,6 +66,13 @@ public class AssignmentsController(LmsDbContext db, IFileUploadService fileServi
         };
         db.Assignments.Add(assignment);
         await db.SaveChangesAsync();
+
+        // Auto-create a CourseGradeItem so this assignment appears in the gradebook
+        var existingOrder = await db.CourseGradeItems.CountAsync(i => i.CourseId == courseId);
+        await gradebook.CreateGradeItemAsync(courseId, new CreateGradeItemRequest(
+            req.Title, "Assignment", req.MaxScore, 1.0,
+            existingOrder, true, assignment.Id, null), UserId);
+
         return CreatedAtAction(nameof(GetById), new { id = assignment.Id }, ToResponse(assignment));
     }
 

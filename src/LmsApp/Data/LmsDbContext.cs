@@ -33,6 +33,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
     public DbSet<CourseReview> CourseReviews => Set<CourseReview>();
 
+    // Gradebook
+    public DbSet<CourseGradeItem> CourseGradeItems => Set<CourseGradeItem>();
+    public DbSet<CourseGradeEntry> CourseGradeEntries => Set<CourseGradeEntry>();
+
     // Engagement
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<CourseProgress> CourseProgresses => Set<CourseProgress>();
@@ -195,6 +199,29 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(a => a.Id);
             e.HasMany(a => a.Submissions).WithOne(s => s.Assignment).HasForeignKey(s => s.AssignmentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CourseGradeItem + CourseGradeEntry
+        modelBuilder.Entity<CourseGradeItem>(e =>
+        {
+            e.HasKey(i => i.Id);
+            e.Property(i => i.Name).HasMaxLength(200).IsRequired();
+            e.HasOne(i => i.Course)
+                .WithMany(c => c.GradeItems)
+                .HasForeignKey(i => i.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(i => i.Entries)
+                .WithOne(en => en.GradeItem)
+                .HasForeignKey(en => en.GradeItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(i => new { i.CourseId, i.Order });
+        });
+
+        modelBuilder.Entity<CourseGradeEntry>(e =>
+        {
+            e.HasKey(en => en.Id);
+            e.HasIndex(en => new { en.GradeItemId, en.UserId }).IsUnique();
+            e.Property(en => en.UserId).HasMaxLength(100).IsRequired();
         });
 
         // CalendarEvent

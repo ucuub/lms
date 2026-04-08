@@ -25,4 +25,5 @@ public class Course
     public ICollection<Announcement> Announcements { get; set; } = [];
     public ICollection<ForumPost> ForumPosts { get; set; } = [];
     public ICollection<CourseReview> Reviews { get; set; } = [];
+    public ICollection<CourseGradeItem> GradeItems { get; set; } = [];
 }
