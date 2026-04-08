@@ -9,12 +9,14 @@ public record ModuleRequest(
     string? VideoUrl,
     int Order = 0,
     bool IsPublished = false,
-    int DurationMinutes = 0
+    int DurationMinutes = 0,
+    int? SectionId = null          // NEW: optional, null = unsectioned (backward compatible)
 );
 
 public record ModuleResponse(
     int Id,
     int CourseId,
+    int? SectionId,                // NEW: section yang menampung modul ini
     string Title,
     string? Content,
     string? VideoUrl,

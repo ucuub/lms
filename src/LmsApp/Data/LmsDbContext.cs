@@ -10,6 +10,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
 
     // Core
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<CourseSection> CourseSections => Set<CourseSection>();
     public DbSet<CourseModule> CourseModules => Set<CourseModule>();
     public DbSet<ModuleAttachment> ModuleAttachments => Set<ModuleAttachment>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
@@ -75,11 +76,35 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasIndex(en => new { en.CourseId, en.UserId }).IsUnique();
         });
 
+        // CourseSection
+        modelBuilder.Entity<CourseSection>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Title).HasMaxLength(200).IsRequired();
+
+            // Section → Course (cascade: hapus course → hapus semua section-nya)
+            e.HasOne(s => s.Course)
+                .WithMany(c => c.Sections)
+                .HasForeignKey(s => s.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index untuk ordering query yang efisien
+            e.HasIndex(s => new { s.CourseId, s.Order });
+        });
+
         // CourseModule
         modelBuilder.Entity<CourseModule>(e =>
         {
             e.HasKey(m => m.Id);
             e.Property(m => m.Title).HasMaxLength(200).IsRequired();
+
+            // Module → Section (SetNull: hapus section → SectionId modul jadi null)
+            // Dengan begini modul tidak ikut terhapus saat section dihapus.
+            e.HasOne(m => m.Section)
+                .WithMany(s => s.Modules)
+                .HasForeignKey(m => m.SectionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             e.HasMany(m => m.Attachments)
                 .WithOne(a => a.Module)
                 .HasForeignKey(a => a.ModuleId)

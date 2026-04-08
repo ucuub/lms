@@ -44,7 +44,10 @@ public record CourseDetailResponse(
     int ReviewCount,
     bool IsEnrolled,
     EnrollmentStatus? EnrollmentStatus,
-    IEnumerable<ModuleSummaryDto> Modules,
+    // Sections berisi modul yang sudah punya section (terurut per section)
+    IEnumerable<SectionDetailDto> Sections,
+    // UnsectionedModules = modul yang belum masuk section manapun (data lama / backward compat)
+    IEnumerable<ModuleSummaryDto> UnsectionedModules,
     IEnumerable<AssignmentSummaryDto> Assignments,
     IEnumerable<QuizSummaryDto> Quizzes,
     IEnumerable<AnnouncementDto> Announcements,
@@ -58,7 +61,8 @@ public record ModuleSummaryDto(
     int Order,
     bool IsPublished,
     int DurationMinutes,
-    string ContentType
+    string ContentType,
+    int? SectionId = null    // nullable default agar backward compat saat construct lama
 );
 
 public record AssignmentSummaryDto(

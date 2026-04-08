@@ -87,9 +87,19 @@ public class ModulesController(LmsDbContext db, IFileUploadService fileService) 
         var (embedId, provider) = VideoService.Parse(req.VideoUrl);
         var contentType = DetermineContentType(req.Content, req.VideoUrl);
 
+        // Jika SectionId diberikan, pastikan section itu milik course yang sama
+        if (req.SectionId.HasValue)
+        {
+            var sectionExists = await db.CourseSections
+                .AnyAsync(s => s.Id == req.SectionId.Value && s.CourseId == courseId);
+            if (!sectionExists)
+                return BadRequest(new { message = $"Section {req.SectionId} tidak ditemukan di course ini." });
+        }
+
         var module = new CourseModule
         {
             CourseId = courseId,
+            SectionId = req.SectionId,
             Title = req.Title,
             Content = req.Content,
             VideoUrl = req.VideoUrl,
@@ -117,6 +127,16 @@ public class ModulesController(LmsDbContext db, IFileUploadService fileService) 
 
         var (embedId, provider) = VideoService.Parse(req.VideoUrl);
 
+        // Validasi SectionId jika diubah
+        if (req.SectionId.HasValue)
+        {
+            var sectionExists = await db.CourseSections
+                .AnyAsync(s => s.Id == req.SectionId.Value && s.CourseId == courseId);
+            if (!sectionExists)
+                return BadRequest(new { message = $"Section {req.SectionId} tidak ditemukan di course ini." });
+        }
+
+        module.SectionId = req.SectionId;
         module.Title = req.Title;
         module.Content = req.Content;
         module.VideoUrl = req.VideoUrl;
@@ -225,7 +245,7 @@ public class ModulesController(LmsDbContext db, IFileUploadService fileService) 
     }
 
     private static ModuleResponse ToDto(CourseModule m) => new(
-        m.Id, m.CourseId, m.Title, m.Content, m.VideoUrl, m.VideoEmbedId,
+        m.Id, m.CourseId, m.SectionId, m.Title, m.Content, m.VideoUrl, m.VideoEmbedId,
         m.VideoProvider.ToString(), m.ContentType.ToString(),
         m.Order, m.IsPublished, m.DurationMinutes,
         m.Attachments.Select(a => new AttachmentDto(a.Id, a.FileName, a.FileUrl, a.FileSize, a.FileType)).ToList()

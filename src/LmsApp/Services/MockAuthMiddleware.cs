@@ -24,11 +24,17 @@ public class MockAuthMiddleware(RequestDelegate next)
                 new("preferred_username", userId),
                 new("name",               name),
                 new("email",              $"{userId}@demo.local"),
-                new("roles",              role),
+                new("roles",              role),   // untuk JWT RoleClaimType
+                new("role",               role),   // untuk User.FindFirst("role") di controllers
                 new("azp",                "lms-app"),
+                // ClaimTypes.Role → agar [Authorize(Roles="teacher,admin")] dan IsInRole() bekerja
+                new(ClaimTypes.Role,      role),
             };
 
-            var identity = new ClaimsIdentity(claims, "Mock");
+            // Beri tahu ClaimsIdentity bahwa role type-nya adalah ClaimTypes.Role
+            var identity = new ClaimsIdentity(claims, "Mock",
+                nameType: "name",
+                roleType: ClaimTypes.Role);
             context.User = new ClaimsPrincipal(identity);
         }
 

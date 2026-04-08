@@ -102,9 +102,13 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService) 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<CourseDetailResponse>> GetById(int id)
     {
+        var isTeacher = UserRole is "teacher" or "admin";
+
         var course = await db.Courses
             .Include(c => c.Enrollments)
-            .Include(c => c.Modules.OrderBy(m => m.Order)).ThenInclude(m => m.Attachments)
+            .Include(c => c.Sections.OrderBy(s => s.Order))
+                .ThenInclude(s => s.Modules.OrderBy(m => m.Order))
+            .Include(c => c.Modules.OrderBy(m => m.Order))
             .Include(c => c.Assignments)
             .Include(c => c.Quizzes).ThenInclude(q => q.Questions)
             .Include(c => c.Announcements.OrderByDescending(a => a.CreatedAt).Take(5))
@@ -117,6 +121,25 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService) 
             course.Enrollments.Any(e => e.UserId == UserId);
         var enrollment = course.Enrollments.FirstOrDefault(e => e.UserId == UserId);
 
+        // Sections — filter IsVisible untuk student
+        var sections = course.Sections
+            .Where(s => isTeacher || s.IsVisible)
+            .Select(s => new SectionDetailDto(
+                s.Id, s.CourseId, s.Title, s.Description,
+                s.Order, s.IsVisible, s.CreatedAt,
+                s.Modules
+                    .Where(m => isTeacher || m.IsPublished)
+                    .Select(m => new ModuleSummaryDto(
+                        m.Id, m.Title, m.Order, m.IsPublished,
+                        m.DurationMinutes, m.ContentType.ToString(), m.SectionId))));
+
+        // Modul tanpa section (backward compat — data lama)
+        var unsectionedModules = course.Modules
+            .Where(m => m.SectionId == null && (isTeacher || m.IsPublished))
+            .Select(m => new ModuleSummaryDto(
+                m.Id, m.Title, m.Order, m.IsPublished,
+                m.DurationMinutes, m.ContentType.ToString(), null));
+
         return Ok(new CourseDetailResponse(
             course.Id, course.Title, course.Description, course.ThumbnailUrl,
             course.InstructorId, course.InstructorName, course.Category, course.Level,
@@ -124,8 +147,8 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService) 
             course.Reviews.Any() ? course.Reviews.Average(r => r.Rating) : 0,
             course.Reviews.Count, isEnrolled,
             enrollment?.Status,
-            course.Modules.Select(m => new ModuleSummaryDto(
-                m.Id, m.Title, m.Order, m.IsPublished, m.DurationMinutes, m.ContentType.ToString())),
+            sections,
+            unsectionedModules,
             course.Assignments.Select(a => new AssignmentSummaryDto(a.Id, a.Title, a.DueDate, a.MaxScore)),
             course.Quizzes.Select(q => new QuizSummaryDto(
                 q.Id, q.Title, q.TimeLimitMinutes, q.PassScore, q.DueDate, q.IsPublished, q.Questions.Count)),
