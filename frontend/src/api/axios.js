@@ -16,6 +16,18 @@ const api = axios.create({
 // ── Request interceptor ───────────────────────────────────────────────────────
 
 api.interceptors.request.use(async (config) => {
+  // ── Path 0: Mock Auth (Development only, VITE_MOCK_AUTH=true) ─────────────
+  if (import.meta.env.VITE_MOCK_AUTH === 'true') {
+    const stored = localStorage.getItem('mockUser')
+    const mockUser = stored
+      ? JSON.parse(stored)
+      : { id: 'student1', role: 'student', name: 'Student 1' }
+    config.headers['X-Mock-User-Id']   = mockUser.id
+    config.headers['X-Mock-User-Role'] = mockUser.role
+    config.headers['X-Mock-User-Name'] = mockUser.name
+    return config
+  }
+
   // ── Path A: Token dari DWI Mobile bridge ─────────────────────────────────
   if (hasBridgeSession()) {
     // Access token expired → refresh dulu via PHP endpoint

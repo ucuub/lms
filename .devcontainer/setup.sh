@@ -94,11 +94,11 @@ echo "   ✅ appsettings.Development.json updated"
 echo "▶ Configuring frontend..."
 cat > frontend/.env.local << EOF
 VITE_API_URL=${API_PUBLIC_URL}/api
+VITE_MOCK_AUTH=true
 VITE_KEYCLOAK_URL=${KC_PUBLIC_URL}
 VITE_KEYCLOAK_REALM=lms
 VITE_KEYCLOAK_CLIENT_ID=lms-app
 VITE_DWI_MOBILE_URL=http://localhost:8000
-VITE_DEMO_MODE=true
 EOF
 echo "   ✅ frontend/.env.local written"
 
@@ -118,13 +118,10 @@ echo "╠═══════════════════════�
 echo "║                                                          ║"
 echo "║  Jalankan di terminal terpisah:                          ║"
 echo "║                                                          ║"
-echo "║  Backend:   cd src/LmsApp && dotnet run                 ║"
-echo "║  Frontend:  cd frontend && npm run dev                  ║"
+echo "║  Backend:   cd src/LmsApp && dotnet run                  ║"
+echo "║  Frontend:  cd frontend && npm run dev                   ║"
 echo "║                                                          ║"
-echo "╠══════════════════════════════════════════════════════════╣"
-echo "║  Test accounts (password: Password1!)                    ║"
-echo "║    student1  →  role: student                           ║"
-echo "║    teacher1  →  role: teacher                           ║"
-echo "║    admin1    →  role: admin                             ║"
+echo "║  ⚡ Mock Auth aktif — pilih user via panel di kanan bawah ║"
+echo "║     (student1, teacher1, admin1)                         ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""

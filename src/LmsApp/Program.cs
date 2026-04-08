@@ -156,6 +156,8 @@ app.UseCors("Frontend");
 app.UseForwardedHeaders();
 app.UseStaticFiles();
 app.UseAuthentication();
+if (app.Environment.IsDevelopment())
+    app.UseMiddleware<MockAuthMiddleware>(); // bypass JWT pakai X-Mock-User-Id header
 app.UseAuthorization();
 app.MapControllers();
 
