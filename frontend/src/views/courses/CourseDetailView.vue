@@ -52,14 +52,21 @@
                   <p class="text-xs text-gray-500">{{ module.durationMinutes }}m · {{ module.contentType }}</p>
                 </div>
               </div>
-              <RouterLink v-if="course.isEnrolled || auth.isTeacher"
-                :to="`/courses/${course.id}/modules/${module.id}`"
-                class="text-blue-600 text-sm hover:underline">
-                Lihat
-              </RouterLink>
-              <svg v-else class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
+              <div class="flex items-center gap-2">
+                <RouterLink v-if="course.isEnrolled || auth.isTeacher"
+                  :to="`/courses/${course.id}/modules/${module.id}`"
+                  class="text-blue-600 text-sm hover:underline">
+                  Lihat
+                </RouterLink>
+                <RouterLink v-if="auth.isTeacher && isMyOwnCourse"
+                  :to="`/courses/${course.id}/modules/${module.id}/edit`"
+                  class="text-gray-400 hover:text-gray-700 text-sm transition" title="Edit modul">
+                  ✏️
+                </RouterLink>
+                <svg v-if="!course.isEnrolled && !auth.isTeacher" class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+              </div>
             </div>
           </div>
         </div>

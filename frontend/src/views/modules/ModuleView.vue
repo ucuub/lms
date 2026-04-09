@@ -1,12 +1,20 @@
 <template>
   <div class="max-w-4xl mx-auto p-6">
     <div v-if="module">
-      <div class="flex items-center gap-3 mb-6">
-        <button @click="$router.back()" class="btn-outline btn-sm">← Kembali</button>
-        <div>
-          <h1 class="text-xl font-bold text-gray-900">{{ module.title }}</h1>
-          <p class="text-sm text-gray-500">{{ module.durationMinutes }}m · {{ module.contentType }}</p>
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <div class="flex items-center gap-3">
+          <button @click="$router.back()" class="btn-outline btn-sm">← Kembali</button>
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">{{ module.title }}</h1>
+            <p class="text-sm text-gray-500">{{ module.durationMinutes }}m · {{ module.contentType }}</p>
+          </div>
         </div>
+        <!-- Edit button — hanya untuk teacher/admin -->
+        <RouterLink v-if="auth.isTeacher"
+          :to="`/courses/${route.params.courseId}/modules/${route.params.id}/edit`"
+          class="btn-outline btn-sm shrink-0">
+          ✏️ Edit Modul
+        </RouterLink>
       </div>
       <div class="card p-6 space-y-6">
         <div v-if="module.videoEmbedId" class="aspect-video rounded-lg overflow-hidden bg-gray-900">
@@ -38,7 +46,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { modulesApi } from '@/api/courses'
+import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
+const auth = useAuthStore()
 const module = ref(null)
 onMounted(async () => {
   const { data } = await modulesApi.getById(route.params.courseId, route.params.id)
