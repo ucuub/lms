@@ -37,8 +37,10 @@ public class AuthController(LmsDbContext db, IConfiguration config) : Controller
                  ?? User.FindFirst("preferred_username")?.Value
                  ?? string.Empty;
 
-        // Ambil role dari Keycloak token — fallback "student" jika tidak ada role LMS
-        var role = KeycloakRoleExtractor.Extract(User, KeycloakClientId) ?? "student";
+        // Ambil role dari Keycloak token — fallback ke claim "role" (mock auth), lalu "student"
+        var role = KeycloakRoleExtractor.Extract(User, KeycloakClientId)
+                ?? User.FindFirst("role")?.Value
+                ?? "student";
 
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.UserId == KeycloakId);
 

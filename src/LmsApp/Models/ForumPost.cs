@@ -14,9 +14,17 @@ public class ForumPost
     public bool IsDeleted { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? EditedAt { get; set; }
+
+    /// <summary>
+    /// Denormalized FK to the root thread. Null for root threads, set for all
+    /// replies at any depth — allows loading the entire thread in one query.
+    /// </summary>
+    public int? RootThreadId { get; set; }
 
     // Navigation
     public Course Course { get; set; } = null!;
     public ForumPost? Parent { get; set; }
     public ICollection<ForumPost> Replies { get; set; } = [];
+    public ICollection<ForumLike> Likes { get; set; } = [];
 }

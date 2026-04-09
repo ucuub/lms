@@ -1,6 +1,7 @@
 using LmsApp.Data;
 using LmsApp.DTOs;
 using LmsApp.Models;
+using LmsApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ namespace LmsApp.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
-public class QuizzesController(LmsDbContext db) : ControllerBase
+public class QuizzesController(LmsDbContext db, INotificationService notifService) : ControllerBase
 {
     private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
@@ -82,14 +83,29 @@ public class QuizzesController(LmsDbContext db) : ControllerBase
         if (quiz == null) return NotFound();
         if (!await IsTeacherOrAdmin(quiz.CourseId)) return Forbid();
 
-        quiz.Title = req.Title;
-        quiz.Description = req.Description;
+        var wasPublished = quiz.IsPublished;
+
+        quiz.Title            = req.Title;
+        quiz.Description      = req.Description;
         quiz.TimeLimitMinutes = req.TimeLimitMinutes;
-        quiz.MaxAttempts = req.MaxAttempts;
-        quiz.PassScore = req.PassScore;
-        quiz.DueDate = req.DueDate;
-        quiz.IsPublished = req.IsPublished;
+        quiz.MaxAttempts      = req.MaxAttempts;
+        quiz.PassScore        = req.PassScore;
+        quiz.DueDate          = req.DueDate;
+        quiz.IsPublished      = req.IsPublished;
         await db.SaveChangesAsync();
+
+        // Kirim notifikasi ke semua student saat quiz baru dipublish
+        if (!wasPublished && req.IsPublished)
+        {
+            var enrolledIds = await db.Enrollments
+                .Where(e => e.CourseId == quiz.CourseId && e.Status == EnrollmentStatus.Active)
+                .Select(e => e.UserId)
+                .ToListAsync();
+
+            await notifService.CreateForQuizAvailableAsync(
+                enrolledIds, quiz.Title, quiz.CourseId, quiz.Id);
+        }
+
         return Ok(ToQuizResponse(quiz));
     }
 

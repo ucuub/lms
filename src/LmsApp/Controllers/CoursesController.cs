@@ -11,7 +11,7 @@ namespace LmsApp.Controllers;
 [ApiController]
 [Route("api/courses")]
 [Authorize]
-public class CoursesController(LmsDbContext db, IFileUploadService fileService) : ControllerBase
+public class CoursesController(LmsDbContext db, IFileUploadService fileService, IPrerequisiteService prerequisiteService) : ControllerBase
 {
     private string UserId => User.FindFirst("sub")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
@@ -245,6 +245,23 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService) 
         if (await db.Enrollments.AnyAsync(e => e.CourseId == id && e.UserId == UserId))
             return Conflict(new { message = "Sudah terdaftar di kursus ini." });
 
+        // Cek prerequisite (skip untuk teacher/admin)
+        if (UserRole == "student")
+        {
+            var prereqCheck = await prerequisiteService.CheckAsync(id, UserId);
+            if (!prereqCheck.CanEnroll)
+            {
+                var unmet = prereqCheck.Prerequisites
+                    .Where(p => !p.IsMet)
+                    .Select(p => p.CourseTitle);
+                return UnprocessableEntity(new
+                {
+                    message = "Prerequisite belum terpenuhi.",
+                    unmetPrerequisites = unmet
+                });
+            }
+        }
+
         var enrollment = new Enrollment
         {
             CourseId = id,
@@ -284,6 +301,9 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService) 
     [HttpPost("{id:int}/reviews")]
     public async Task<IActionResult> SubmitReview(int id, [FromBody] SubmitReviewRequest req)
     {
+        if (req.Rating < 1 || req.Rating > 5)
+            return BadRequest(new { message = "Rating harus antara 1 dan 5." });
+
         if (!await db.Enrollments.AnyAsync(e => e.CourseId == id && e.UserId == UserId))
             return Forbid();
 

@@ -20,5 +20,7 @@ public enum NotificationType
     Assignment,
     Quiz,
     Grade,
-    Announcement
+    Announcement,
+    Certificate,
+    Forum
 }

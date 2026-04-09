@@ -29,8 +29,19 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<QuestionBank> QuestionBank => Set<QuestionBank>();
     public DbSet<QuestionBankOption> QuestionBankOptions => Set<QuestionBankOption>();
 
+    // Prerequisites
+    public DbSet<CoursePrerequisite> CoursePrerequisites => Set<CoursePrerequisite>();
+
+    // Attendance
+    public DbSet<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
+    public DbSet<AttendanceRecord> AttendanceRecords   => Set<AttendanceRecord>();
+
+    // Resources
+    public DbSet<CourseResource> CourseResources => Set<CourseResource>();
+
     // Forum
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
+    public DbSet<ForumLike> ForumLikes => Set<ForumLike>();
     public DbSet<CourseReview> CourseReviews => Set<CourseReview>();
 
     // Gradebook
@@ -183,6 +194,59 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // CourseResource
+        modelBuilder.Entity<CourseResource>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Title).HasMaxLength(200).IsRequired();
+            e.Property(r => r.UploadedBy).HasMaxLength(100);
+            e.HasOne(r => r.Course)
+                .WithMany()
+                .HasForeignKey(r => r.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(r => new { r.CourseId, r.Order });
+        });
+
+        // Attendance
+        modelBuilder.Entity<AttendanceSession>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Title).HasMaxLength(200).IsRequired();
+            e.HasOne(s => s.Course)
+                .WithMany()
+                .HasForeignKey(s => s.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(s => s.Records)
+                .WithOne(r => r.Session)
+                .HasForeignKey(r => r.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(s => new { s.CourseId, s.SessionDate });
+        });
+
+        modelBuilder.Entity<AttendanceRecord>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.UserId).HasMaxLength(100).IsRequired();
+            // Satu user hanya boleh punya satu record per sesi
+            e.HasIndex(r => new { r.SessionId, r.UserId }).IsUnique();
+        });
+
+        // CoursePrerequisite
+        modelBuilder.Entity<CoursePrerequisite>(e =>
+        {
+            e.HasKey(p => p.Id);
+            // Unique: satu pasangan (CourseId, PrerequisiteCourseId) hanya boleh ada sekali
+            e.HasIndex(p => new { p.CourseId, p.PrerequisiteCourseId }).IsUnique();
+            e.HasOne(p => p.Course)
+                .WithMany(c => c.Prerequisites)
+                .HasForeignKey(p => p.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.PrerequisiteCourse)
+                .WithMany()
+                .HasForeignKey(p => p.PrerequisiteCourseId)
+                .OnDelete(DeleteBehavior.Restrict); // jangan hapus course jika masih jadi prerequisite
+        });
+
         // CourseCompletionRule — one-to-one dengan Course
         modelBuilder.Entity<CourseCompletionRule>(e =>
         {
@@ -199,6 +263,14 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         {
             e.HasKey(a => a.Id);
             e.HasMany(a => a.Submissions).WithOne(s => s.Assignment).HasForeignKey(s => s.AssignmentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Submission>(e =>
+        {
+            e.HasKey(s => s.Id);
+            // Satu student hanya boleh punya satu submission per assignment
+            e.HasIndex(s => new { s.AssignmentId, s.UserId }).IsUnique();
+            e.Property(s => s.UserId).HasMaxLength(100).IsRequired();
         });
 
         // CourseGradeItem + CourseGradeEntry
@@ -248,7 +320,22 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .WithMany(f => f.Replies)
                 .HasForeignKey(f => f.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
+            // Index for thread-list queries (pinned + date ordering)
             e.HasIndex(f => new { f.CourseId, f.ParentId, f.CreatedAt });
+            // Index for loading all replies in a thread via RootThreadId
+            e.HasIndex(f => new { f.RootThreadId, f.CreatedAt });
+        });
+
+        modelBuilder.Entity<ForumLike>(e =>
+        {
+            e.HasKey(l => l.Id);
+            e.Property(l => l.UserId).HasMaxLength(100).IsRequired();
+            // One like per user per post
+            e.HasIndex(l => new { l.PostId, l.UserId }).IsUnique();
+            e.HasOne(l => l.Post)
+                .WithMany(f => f.Likes)
+                .HasForeignKey(l => l.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Notification

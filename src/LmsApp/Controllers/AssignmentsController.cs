@@ -109,6 +109,7 @@ public class AssignmentsController(LmsDbContext db, IFileUploadService fileServi
 
     // Student: submit assignment
     [HttpPost("assignments/{id:int}/submit")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("upload")]
     public async Task<ActionResult<SubmissionResponse>> Submit(int id,
         [FromForm] string? textContent,
         IFormFile? file)

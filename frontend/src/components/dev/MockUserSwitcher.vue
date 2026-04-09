@@ -34,11 +34,12 @@ const auth = useAuthStore()
 const loading = ref(false)
 
 const users = [
-  { id: 'student1', role: 'student', name: 'Student 1' },
-  { id: 'student2', role: 'student', name: 'Student 2' },
-  { id: 'teacher1', role: 'teacher', name: 'Teacher 1' },
-  { id: 'teacher2', role: 'teacher', name: 'Teacher 2' },
-  { id: 'admin1',   role: 'admin',   name: 'Admin 1'   },
+  { id: 'seed-student-1', role: 'student', name: 'Budi (Student 1)' },
+  { id: 'seed-student-2', role: 'student', name: 'Sari (Student 2)' },
+  { id: 'seed-student-4', role: 'student', name: 'Nurul (Sertifikat)' },
+  { id: 'seed-teacher-1', role: 'teacher', name: 'Dewi (Teacher 1)' },
+  { id: 'seed-teacher-2', role: 'teacher', name: 'Bima (Teacher 2)' },
+  { id: 'seed-admin-1',   role: 'admin',   name: 'Admin 1'          },
 ]
 
 const stored = localStorage.getItem('mockUser')

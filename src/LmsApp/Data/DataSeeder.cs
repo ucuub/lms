@@ -477,14 +477,15 @@ judul.classList.toggle('aktif');</code></pre>
             new Enrollment { CourseId = course1.Id, UserId = student1.UserId, UserName = student1.Name, Status = EnrollmentStatus.Active },
             new Enrollment { CourseId = course1.Id, UserId = student2.UserId, UserName = student2.Name, Status = EnrollmentStatus.Active },
             new Enrollment { CourseId = course1.Id, UserId = student3.UserId, UserName = student3.Name, Status = EnrollmentStatus.Active },
-            new Enrollment { CourseId = course1.Id, UserId = student4.UserId, UserName = student4.Name, Status = EnrollmentStatus.Completed }
+            new Enrollment { CourseId = course1.Id, UserId = student4.UserId, UserName = student4.Name, Status = EnrollmentStatus.Completed, CompletedAt = DateTime.UtcNow.AddDays(-5) }
         );
 
-        // Progress student1 (sudah selesaikan 3 modul)
+        // Progress student1 (sudah selesaikan semua modul → bisa klaim sertifikat)
         var progress1 = new CourseProgress {
             CourseId = course1.Id, UserId = student1.UserId,
-            CompletedModules = 3, TotalModules = 5,
+            CompletedModules = 5, TotalModules = 5,
             LastAccessedAt = DateTime.UtcNow.AddHours(-2),
+            CompletedAt = DateTime.UtcNow.AddDays(-1),
         };
         db.CourseProgresses.Add(progress1);
         await db.SaveChangesAsync();
@@ -492,7 +493,27 @@ judul.classList.toggle('aktif');</code></pre>
         db.ModuleProgresses.AddRange(
             new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[0].Id, UserId = student1.UserId },
             new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[1].Id, UserId = student1.UserId },
-            new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[2].Id, UserId = student1.UserId }
+            new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[2].Id, UserId = student1.UserId },
+            new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[3].Id, UserId = student1.UserId },
+            new ModuleProgress { CourseProgressId = progress1.Id, ModuleId = modules1[4].Id, UserId = student1.UserId }
+        );
+
+        // Progress student4 (sudah completed — sinkron dengan enrollment.CompletedAt & certificate)
+        var progress4 = new CourseProgress {
+            CourseId = course1.Id, UserId = student4.UserId,
+            CompletedModules = 5, TotalModules = 5,
+            LastAccessedAt = DateTime.UtcNow.AddDays(-5),
+            CompletedAt    = DateTime.UtcNow.AddDays(-5),
+        };
+        db.CourseProgresses.Add(progress4);
+        await db.SaveChangesAsync();
+
+        db.ModuleProgresses.AddRange(
+            new ModuleProgress { CourseProgressId = progress4.Id, ModuleId = modules1[0].Id, UserId = student4.UserId },
+            new ModuleProgress { CourseProgressId = progress4.Id, ModuleId = modules1[1].Id, UserId = student4.UserId },
+            new ModuleProgress { CourseProgressId = progress4.Id, ModuleId = modules1[2].Id, UserId = student4.UserId },
+            new ModuleProgress { CourseProgressId = progress4.Id, ModuleId = modules1[3].Id, UserId = student4.UserId },
+            new ModuleProgress { CourseProgressId = progress4.Id, ModuleId = modules1[4].Id, UserId = student4.UserId }
         );
 
         // Submission + Grade student1 assignment 1
@@ -510,12 +531,21 @@ judul.classList.toggle('aktif');</code></pre>
             GradedAt     = DateTime.UtcNow.AddDays(-1),
         });
 
-        // Certificate student4 (sudah completed)
+        // Certificate student1 (Budi — bisa dilihat via MockUserSwitcher)
+        db.Certificates.Add(new Certificate {
+            CourseId          = course1.Id,
+            UserId            = student1.UserId,
+            UserName          = student1.Name,
+            CertificateNumber = $"LMS-{DateTime.UtcNow.Year}-WEB-0001",
+            IssuedAt          = DateTime.UtcNow.AddDays(-1),
+        });
+
+        // Certificate student4 (sudah completed — bisa dilihat via "Nurul (Sertifikat)" di switcher)
         db.Certificates.Add(new Certificate {
             CourseId          = course1.Id,
             UserId            = student4.UserId,
             UserName          = student4.Name,
-            CertificateNumber = $"LMS-{DateTime.UtcNow.Year}-WEB-0001",
+            CertificateNumber = $"LMS-{DateTime.UtcNow.Year}-WEB-0002",
             IssuedAt          = DateTime.UtcNow.AddDays(-5),
         });
 

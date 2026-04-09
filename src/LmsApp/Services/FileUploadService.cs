@@ -31,7 +31,15 @@ public class FileUploadService(IWebHostEnvironment env, ILogger<FileUploadServic
     public void Delete(string filePath)
     {
         if (string.IsNullOrEmpty(filePath)) return;
-        var fullPath = Path.Combine(env.WebRootPath, filePath.TrimStart('/'));
+        var fullPath = Path.GetFullPath(Path.Combine(env.WebRootPath, filePath.TrimStart('/')));
+
+        // Guard: pastikan path tetap di dalam webroot (cegah path traversal)
+        if (!fullPath.StartsWith(env.WebRootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning("Delete blocked — path outside webroot: {Path}", fullPath);
+            return;
+        }
+
         if (File.Exists(fullPath))
         {
             File.Delete(fullPath);

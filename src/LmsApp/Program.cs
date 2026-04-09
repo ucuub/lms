@@ -2,14 +2,23 @@ using LmsApp.Data;
 using LmsApp.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────────────────
+// Gunakan SQLite jika connection string dimulai dengan "Data Source"
+var connStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
 builder.Services.AddDbContext<LmsDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (connStr.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase))
+        options.UseSqlite(connStr);
+    else
+        options.UseNpgsql(connStr);
+});
 
 // ── Keycloak JWT Authentication ───────────────────────────────────────────────
 var authority = builder.Configuration["Keycloak:Authority"]
@@ -112,10 +121,47 @@ builder.Services.AddCors(options =>
 
 // ── App Services ──────────────────────────────────────────────────────────────
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IForumService, ForumService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IPrerequisiteService, PrerequisiteService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddHostedService<AssignmentReminderService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
 builder.Services.AddScoped<ICompletionService, CompletionService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
+
+// ── Rate Limiting ─────────────────────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    // Global: 100 req/menit per IP
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    // Upload endpoint: lebih ketat — 10 req/menit per IP
+    options.AddFixedWindowLimiter("upload", o =>
+    {
+        o.PermitLimit = 10;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 0;
+    });
+
+    options.OnRejected = async (ctx, token) =>
+    {
+        ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await ctx.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Terlalu banyak request. Coba lagi nanti." }, token);
+    };
+});
 
 // ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -155,6 +201,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LMS API v1"));
 }
 
+// Global exception handler — jangan expose stack trace ke client
+app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+{
+    ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    ctx.Response.ContentType = "application/json";
+    await ctx.Response.WriteAsJsonAsync(new
+    {
+        message = "Terjadi kesalahan pada server. Silakan coba lagi."
+    });
+}));
+
+app.UseRateLimiter();
 app.UseCors("Frontend");
 app.UseForwardedHeaders();
 app.UseStaticFiles();

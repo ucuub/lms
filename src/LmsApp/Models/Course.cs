@@ -26,4 +26,7 @@ public class Course
     public ICollection<ForumPost> ForumPosts { get; set; } = [];
     public ICollection<CourseReview> Reviews { get; set; } = [];
     public ICollection<CourseGradeItem> GradeItems { get; set; } = [];
+
+    // Prerequisites: kursus ini memerlukan kursus lain sebelum bisa di-enroll
+    public ICollection<CoursePrerequisite> Prerequisites { get; set; } = [];
 }
