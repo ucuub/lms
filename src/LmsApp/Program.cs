@@ -209,6 +209,11 @@ app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
 
     var ex = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
     var isDev = ctx.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
+    var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GlobalExceptionHandler");
+
+    // Selalu log ke terminal backend
+    logger.LogError(ex, "Unhandled exception on {Method} {Path}: {Message}",
+        ctx.Request.Method, ctx.Request.Path, ex?.Message);
 
     await ctx.Response.WriteAsJsonAsync(new
     {
