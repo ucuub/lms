@@ -221,6 +221,12 @@ app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
 app.UseRateLimiter();
 app.UseCors("Frontend");
 app.UseForwardedHeaders();
+
+// Pastikan wwwroot ada — di Codespaces/container tidak ada jika tidak di-commit ke git
+var webRootPath = app.Environment.WebRootPath
+    ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(webRootPath);
+Directory.CreateDirectory(Path.Combine(webRootPath, "uploads"));
 app.UseStaticFiles();
 app.UseAuthentication();
 if (app.Environment.IsDevelopment())
