@@ -14,7 +14,8 @@ namespace LmsApp.Controllers;
 public class ModulesController(
     LmsDbContext db,
     IFileUploadService fileService,
-    ICompletionService completionService) : ControllerBase
+    ICompletionService completionService,
+    IActivityLogService activityLogService) : ControllerBase
 {
     private string UserId   => User.FindFirst("sub")?.Value  ?? string.Empty;
     private string UserName => User.FindFirst("name")?.Value ?? string.Empty;
@@ -49,6 +50,9 @@ public class ModulesController(
             .FirstOrDefaultAsync(m => m.Id == id && m.CourseId == courseId);
         if (module == null) return NotFound();
         if (!isTeacher && !module.IsPublished) return Forbid();
+
+        // Log activity (fire-and-forget)
+        _ = activityLogService.LogAsync(UserId, UserName, "view_module", "Module", module.Id, module.Title, module.CourseId);
 
         // Mark progress
         if (isEnrolled)

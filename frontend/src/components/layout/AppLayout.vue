@@ -26,6 +26,11 @@
         </button>
       </div>
 
+      <!-- Search -->
+      <div class="px-3 py-2 border-b border-gray-100">
+        <SearchBar />
+      </div>
+
       <!-- Nav -->
       <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         <RouterLink to="/dashboard" class="sidebar-link" @click="sidebarOpen = false">
@@ -52,6 +57,22 @@
             </span>
           </div>
           Notifikasi
+        </RouterLink>
+
+        <RouterLink to="/messages" class="sidebar-link" @click="sidebarOpen = false">
+          <div class="relative">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+            <span v-if="msgCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+              {{ msgCount > 9 ? '9+' : msgCount }}
+            </span>
+          </div>
+          Pesan
+        </RouterLink>
+
+        <RouterLink to="/activity" class="sidebar-link" @click="sidebarOpen = false">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          Aktivitas Saya
         </RouterLink>
 
         <template v-if="auth.isTeacher">
@@ -115,12 +136,20 @@
           </svg>
         </button>
         <span class="font-bold text-gray-900">LMS Pro</span>
-        <RouterLink to="/notifications" class="relative text-gray-500 hover:text-gray-700">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-          <span v-if="notifCount > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-            {{ notifCount > 9 ? '9+' : notifCount }}
-          </span>
-        </RouterLink>
+        <div class="flex items-center gap-3">
+          <RouterLink to="/messages" class="relative text-gray-500 hover:text-gray-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+            <span v-if="msgCount > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+              {{ msgCount > 9 ? '9+' : msgCount }}
+            </span>
+          </RouterLink>
+          <RouterLink to="/notifications" class="relative text-gray-500 hover:text-gray-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span v-if="notifCount > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+              {{ notifCount > 9 ? '9+' : notifCount }}
+            </span>
+          </RouterLink>
+        </div>
       </header>
 
       <main class="flex-1 overflow-y-auto">
@@ -135,20 +164,37 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import { messagesApi } from '@/api/messages'
+import SearchBar from './SearchBar.vue'
 
 const auth = useAuthStore()
 const notifStore = useNotificationStore()
 const router = useRouter()
 const sidebarOpen = ref(false)
+const msgCount = ref(0)
 
 const initials = computed(() =>
   auth.user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U'
 )
 const notifCount = computed(() => notifStore.unreadCount)
 
-let pollTimer
-onMounted(() => { pollTimer = notifStore.startPolling() })
-onUnmounted(() => clearInterval(pollTimer))
+async function fetchMsgCount() {
+  try {
+    const { data } = await messagesApi.unreadCount()
+    msgCount.value = data.count ?? 0
+  } catch {}
+}
+
+let pollTimer, msgPollTimer
+onMounted(() => {
+  pollTimer = notifStore.startPolling()
+  fetchMsgCount()
+  msgPollTimer = setInterval(fetchMsgCount, 30000)
+})
+onUnmounted(() => {
+  clearInterval(pollTimer)
+  clearInterval(msgPollTimer)
+})
 
 async function handleLogout() {
   await auth.logout()

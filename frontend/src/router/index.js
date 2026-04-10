@@ -54,6 +54,12 @@ const routes = [
 
       // Question Bank
       { path: 'question-bank', name: 'QuestionBank', component: () => import('@/views/quiz/QuestionBankView.vue'), meta: { role: 'teacher' } },
+
+      // Messaging
+      { path: 'messages', name: 'Messages', component: () => import('@/views/messages/MessagingView.vue') },
+
+      // Activity
+      { path: 'activity', name: 'Activity', component: () => import('@/views/activity/ActivityView.vue') },
     ]
   },
 

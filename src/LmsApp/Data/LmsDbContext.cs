@@ -56,6 +56,13 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    // Messaging
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+
+    // Activity Log
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -344,6 +351,37 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasKey(n => n.Id);
             e.HasIndex(n => new { n.UserId, n.IsRead });
             e.Property(n => n.UserId).HasMaxLength(100).IsRequired();
+        });
+
+        // Conversation
+        modelBuilder.Entity<Conversation>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.Property(c => c.User1Id).HasMaxLength(100).IsRequired();
+            e.Property(c => c.User2Id).HasMaxLength(100).IsRequired();
+            e.HasIndex(c => new { c.User1Id, c.User2Id });
+            e.HasMany(c => c.Messages).WithOne(m => m.Conversation)
+                .HasForeignKey(m => m.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Message
+        modelBuilder.Entity<Message>(e =>
+        {
+            e.HasKey(m => m.Id);
+            e.Property(m => m.Content).IsRequired();
+            e.Property(m => m.SenderId).HasMaxLength(100).IsRequired();
+            e.HasIndex(m => new { m.ConversationId, m.CreatedAt });
+        });
+
+        // ActivityLog
+        modelBuilder.Entity<ActivityLog>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.UserId).HasMaxLength(100).IsRequired();
+            e.Property(a => a.Action).HasMaxLength(100).IsRequired();
+            e.Property(a => a.EntityType).HasMaxLength(100).IsRequired();
+            e.HasIndex(a => new { a.UserId, a.Timestamp });
+            e.HasIndex(a => new { a.CourseId, a.Timestamp });
         });
     }
 }

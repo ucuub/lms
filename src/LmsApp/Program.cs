@@ -130,6 +130,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
 builder.Services.AddScoped<ICompletionService, CompletionService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
+builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -201,37 +202,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LMS API v1"));
 }
 
-// Global exception handler
+// Global exception handler — jangan expose stack trace ke client
 app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
 {
     ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
     ctx.Response.ContentType = "application/json";
-
-    var ex = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
-    var isDev = ctx.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
-    var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GlobalExceptionHandler");
-
-    // Selalu log ke terminal backend
-    logger.LogError(ex, "Unhandled exception on {Method} {Path}: {Message}",
-        ctx.Request.Method, ctx.Request.Path, ex?.Message);
-
     await ctx.Response.WriteAsJsonAsync(new
     {
-        message = isDev && ex != null
-            ? $"[DEV] {ex.GetType().Name}: {ex.Message}"
-            : "Terjadi kesalahan pada server. Silakan coba lagi."
+        message = "Terjadi kesalahan pada server. Silakan coba lagi."
     });
 }));
 
 app.UseRateLimiter();
 app.UseCors("Frontend");
 app.UseForwardedHeaders();
-
-// Pastikan wwwroot ada — di Codespaces/container tidak ada jika tidak di-commit ke git
-var webRootPath = app.Environment.WebRootPath
-    ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-Directory.CreateDirectory(webRootPath);
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads"));
 app.UseStaticFiles();
 app.UseAuthentication();
 if (app.Environment.IsDevelopment())
@@ -243,19 +227,6 @@ app.MapControllers();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
-
-    // In development: jika tabel baru ditambahkan setelah DB pertama dibuat,
-    // EnsureCreated() tidak menambahkannya secara otomatis. Deteksi schema lama
-    // dengan mencoba query ke tabel terbaru — jika gagal, drop + recreate.
-    if (app.Environment.IsDevelopment())
-    {
-        try { _ = db.CourseResources.Any(); }
-        catch
-        {
-            db.Database.EnsureDeleted();
-        }
-    }
-
     db.Database.EnsureCreated();
     await DataSeeder.SeedAsync(db);
 }
