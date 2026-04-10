@@ -226,6 +226,19 @@ app.MapControllers();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
+
+    // In development: jika tabel baru ditambahkan setelah DB pertama dibuat,
+    // EnsureCreated() tidak menambahkannya secara otomatis. Deteksi schema lama
+    // dengan mencoba query ke tabel terbaru — jika gagal, drop + recreate.
+    if (app.Environment.IsDevelopment())
+    {
+        try { _ = db.CourseResources.Any(); }
+        catch
+        {
+            db.Database.EnsureDeleted();
+        }
+    }
+
     db.Database.EnsureCreated();
     await DataSeeder.SeedAsync(db);
 }

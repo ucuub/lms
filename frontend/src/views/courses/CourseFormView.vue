@@ -270,8 +270,8 @@ async function doUpload(files) {
     try {
       const { data } = await resourcesApi.upload(route.params.id, file)
       resources.value.push(data)
-    } catch {
-      uploadError.value = `Gagal upload: ${file.name}`
+    } catch (e) {
+      uploadError.value = e.response?.data?.message || `Gagal upload: ${file.name}`
     }
     uploadQueue.value = uploadQueue.value.filter(n => n !== file.name)
   }
