@@ -11,7 +11,8 @@
             <td class="text-gray-500">{{ c.instructorName }}</td>
             <td>{{ c.enrollmentCount }}</td>
             <td><span :class="c.isPublished ? 'badge-green' : 'badge-yellow'" class="badge">{{ c.isPublished ? 'Publik' : 'Draft' }}</span></td>
-            <td class="flex gap-2">
+            <td class="flex gap-2 flex-wrap">
+              <RouterLink :to="`/courses/${c.id}`" class="btn-outline btn-sm">Kelola</RouterLink>
               <button @click="toggle(c)" class="btn-outline btn-sm">{{ c.isPublished ? 'Sembunyikan' : 'Publikasikan' }}</button>
               <button @click="del(c.id)" class="btn-danger btn-sm">Hapus</button>
             </td>
