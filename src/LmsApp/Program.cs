@@ -201,14 +201,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LMS API v1"));
 }
 
-// Global exception handler — jangan expose stack trace ke client
+// Global exception handler
 app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
 {
     ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
     ctx.Response.ContentType = "application/json";
+
+    var ex = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    var isDev = ctx.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
+
     await ctx.Response.WriteAsJsonAsync(new
     {
-        message = "Terjadi kesalahan pada server. Silakan coba lagi."
+        message = isDev && ex != null
+            ? $"[DEV] {ex.GetType().Name}: {ex.Message}"
+            : "Terjadi kesalahan pada server. Silakan coba lagi."
     });
 }));
 

@@ -14,7 +14,12 @@ public class FileUploadService(IWebHostEnvironment env, ILogger<FileUploadServic
 
     public async Task<string> UploadAsync(IFormFile file, string folder)
     {
-        var uploadPath = Path.Combine(env.WebRootPath, "uploads", folder);
+        // WebRootPath bisa null jika wwwroot tidak dikonfigurasi — fallback ke ContentRoot
+        var webRoot = string.IsNullOrEmpty(env.WebRootPath)
+            ? Path.Combine(env.ContentRootPath, "wwwroot")
+            : env.WebRootPath;
+
+        var uploadPath = Path.Combine(webRoot, "uploads", folder);
         Directory.CreateDirectory(uploadPath);
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -31,10 +36,13 @@ public class FileUploadService(IWebHostEnvironment env, ILogger<FileUploadServic
     public void Delete(string filePath)
     {
         if (string.IsNullOrEmpty(filePath)) return;
-        var fullPath = Path.GetFullPath(Path.Combine(env.WebRootPath, filePath.TrimStart('/')));
+        var webRoot = string.IsNullOrEmpty(env.WebRootPath)
+            ? Path.Combine(env.ContentRootPath, "wwwroot")
+            : env.WebRootPath;
+        var fullPath = Path.GetFullPath(Path.Combine(webRoot, filePath.TrimStart('/')));
 
         // Guard: pastikan path tetap di dalam webroot (cegah path traversal)
-        if (!fullPath.StartsWith(env.WebRootPath, StringComparison.OrdinalIgnoreCase))
+        if (!fullPath.StartsWith(webRoot, StringComparison.OrdinalIgnoreCase))
         {
             logger.LogWarning("Delete blocked — path outside webroot: {Path}", fullPath);
             return;

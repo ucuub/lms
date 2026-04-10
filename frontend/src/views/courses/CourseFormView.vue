@@ -110,13 +110,22 @@
         </div>
 
         <!-- Upload progress -->
-        <div v-if="uploading" class="mt-3 space-y-2">
-          <div v-for="(u, i) in uploadQueue" :key="i" class="flex items-center gap-2 text-sm">
-            <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent shrink-0"></div>
-            <span class="text-blue-600 truncate">{{ u }}</span>
+        <div v-if="uploadQueue.length" class="mt-3 space-y-1">
+          <div v-for="u in uploadQueue" :key="u.name" class="flex items-center gap-2 text-sm">
+            <template v-if="u.status === 'uploading'">
+              <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent shrink-0"></div>
+              <span class="text-blue-600 truncate">{{ u.name }}</span>
+            </template>
+            <template v-else-if="u.status === 'done'">
+              <span class="text-green-500 shrink-0">✓</span>
+              <span class="text-green-600 truncate">{{ u.name }}</span>
+            </template>
+            <template v-else-if="u.status === 'error'">
+              <span class="text-red-500 shrink-0">✗</span>
+              <span class="text-red-600 truncate">{{ u.name }} — {{ u.error }}</span>
+            </template>
           </div>
         </div>
-        <div v-if="uploadError" class="mt-2 text-sm text-red-600">{{ uploadError }}</div>
 
         <!-- Resource list -->
         <div v-if="resources.length" class="mt-5 space-y-2">
@@ -179,8 +188,7 @@ const thumbnailFile = ref(null)
 const fileInput = ref(null)
 const resources = ref([])
 const uploading = ref(false)
-const uploadQueue = ref([])
-const uploadError = ref('')
+const uploadQueue = ref([])   // [{ name, status: 'uploading'|'done'|'error', error? }]
 const isDragging = ref(false)
 
 const commonCategories = ['Pemrograman', 'Desain', 'Bisnis', 'Bahasa', 'Matematika', 'Sains', 'Seni', 'Olahraga']
@@ -251,32 +259,40 @@ async function doUpload(files) {
                    '.mp4','.webm','.mp3','.png','.jpg','.jpeg','.gif','.svg','.zip','.rar','.txt']
   const maxSize = 100 * 1024 * 1024
 
-  uploadError.value = ''
   uploading.value = true
-  uploadQueue.value = files.map(f => f.name)
 
-  for (const file of files) {
+  // Validasi dulu — pisahkan file valid dan tidak valid
+  const queue = files.map(file => {
     const ext = '.' + file.name.split('.').pop().toLowerCase()
-    if (!allowed.includes(ext)) {
-      uploadError.value = `Format tidak didukung: ${file.name}`
-      uploadQueue.value = uploadQueue.value.filter(n => n !== file.name)
-      continue
-    }
-    if (file.size > maxSize) {
-      uploadError.value = `File terlalu besar (maks 100 MB): ${file.name}`
-      uploadQueue.value = uploadQueue.value.filter(n => n !== file.name)
-      continue
-    }
-    try {
-      const { data } = await resourcesApi.upload(route.params.id, file)
-      resources.value.push(data)
-    } catch (e) {
-      uploadError.value = e.response?.data?.message || `Gagal upload: ${file.name}`
-    }
-    uploadQueue.value = uploadQueue.value.filter(n => n !== file.name)
-  }
+    if (!allowed.includes(ext))
+      return { name: file.name, status: 'error', error: 'Format tidak didukung', file: null }
+    if (file.size > maxSize)
+      return { name: file.name, status: 'error', error: 'Ukuran maks 100 MB', file: null }
+    return { name: file.name, status: 'uploading', error: null, file }
+  })
+
+  uploadQueue.value = queue
+
+  // Upload semua file yang valid secara paralel
+  await Promise.all(
+    queue.filter(q => q.status === 'uploading').map(async (q) => {
+      try {
+        const { data } = await resourcesApi.upload(route.params.id, q.file)
+        resources.value.push(data)
+        q.status = 'done'
+      } catch (e) {
+        q.status = 'error'
+        q.error = e.response?.data?.message || 'Gagal upload'
+      }
+    })
+  )
 
   uploading.value = false
+
+  // Bersihkan status sukses setelah 2 detik, biarkan error tetap tampil
+  setTimeout(() => {
+    uploadQueue.value = uploadQueue.value.filter(q => q.status !== 'done')
+  }, 2000)
 }
 
 async function toggleVisibility(r) {
