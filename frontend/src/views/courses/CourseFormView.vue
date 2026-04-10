@@ -143,6 +143,12 @@
               <p class="text-xs text-gray-400">{{ r.fileSizeLabel }} · {{ r.fileType }} · {{ r.downloadCount }} unduhan</p>
             </div>
 
+            <!-- Open/download -->
+            <a :href="r.fileUrl" target="_blank" rel="noopener"
+              class="text-blue-500 hover:text-blue-700 text-xs shrink-0" title="Buka file">
+              ↗
+            </a>
+
             <!-- Visibility toggle -->
             <button @click="toggleVisibility(r)"
               :class="r.isVisible ? 'text-green-600' : 'text-gray-300'"

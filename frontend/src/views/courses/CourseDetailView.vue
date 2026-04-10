@@ -105,6 +105,35 @@
           </div>
         </div>
 
+        <!-- Resources / File Materi -->
+        <div v-if="resources.length" class="card p-6">
+          <h2 class="font-semibold text-gray-900 mb-4">File & Materi</h2>
+          <div class="space-y-2">
+            <a v-for="r in resources" :key="r.id"
+              :href="r.fileUrl" target="_blank" rel="noopener"
+              class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-blue-50 transition group">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold uppercase shrink-0"
+                :class="{
+                  'bg-red-100 text-red-600':    r.fileType === 'pdf',
+                  'bg-purple-100 text-purple-600': r.fileType === 'video',
+                  'bg-pink-100 text-pink-600':  r.fileType === 'audio',
+                  'bg-blue-100 text-blue-600':  r.fileType === 'doc',
+                  'bg-orange-100 text-orange-600': r.fileType === 'presentation',
+                  'bg-green-100 text-green-600': r.fileType === 'spreadsheet',
+                  'bg-yellow-100 text-yellow-600': r.fileType === 'image',
+                  'bg-gray-100 text-gray-600':  !['pdf','video','audio','doc','presentation','spreadsheet','image'].includes(r.fileType)
+                }">
+                {{ r.fileType === 'video' ? '▶' : r.fileType === 'audio' ? '♪' : r.fileType.slice(0,3) }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">{{ r.title }}</p>
+                <p class="text-xs text-gray-400">{{ r.fileSizeLabel }} · {{ r.downloadCount }} unduhan</p>
+              </div>
+              <span class="text-xs text-blue-500 shrink-0">↗ Buka</span>
+            </a>
+          </div>
+        </div>
+
         <!-- Reviews -->
         <div class="card p-6">
           <h2 class="font-semibold text-gray-900 mb-4">Ulasan Siswa</h2>
@@ -174,11 +203,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { coursesApi } from '@/api/courses'
+import { coursesApi, resourcesApi } from '@/api/courses'
 
 const route = useRoute()
 const auth = useAuthStore()
 const course = ref(null)
+const resources = ref([])
 const loading = ref(true)
 const enrollLoading = ref(false)
 const reviewLoading = ref(false)
@@ -192,6 +222,13 @@ async function load() {
   try {
     const { data } = await coursesApi.getById(route.params.id)
     course.value = data
+    // Load resources jika sudah enroll atau teacher/admin
+    if (data.isEnrolled || auth.isTeacher || auth.isAdmin) {
+      try {
+        const { data: res } = await resourcesApi.getAll(route.params.id)
+        resources.value = res.filter(r => r.isVisible)
+      } catch {}
+    }
   } finally {
     loading.value = false
   }
