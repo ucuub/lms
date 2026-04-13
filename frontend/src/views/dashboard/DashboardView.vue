@@ -110,6 +110,78 @@
           </RouterLink>
         </div>
       </div>
+
+      <!-- Overall Progress Summary -->
+      <div v-if="dashboard?.courses?.length" class="card p-6 mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Progres Keseluruhan</h2>
+        <div class="space-y-3">
+          <div v-for="c in dashboard.courses" :key="c.courseId" class="flex items-center gap-4">
+            <div class="w-40 shrink-0">
+              <p class="text-sm font-medium text-gray-800 truncate">{{ c.title }}</p>
+              <p class="text-xs text-gray-400">{{ c.completedModules }}/{{ c.totalModules }} modul</p>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <div class="flex-1 bg-gray-100 rounded-full h-2.5">
+                  <div class="h-2.5 rounded-full transition-all duration-500"
+                    :class="c.status === 'Completed' ? 'bg-green-500' : 'bg-blue-500'"
+                    :style="`width: ${c.progressPercent}%`"></div>
+                </div>
+                <span class="text-sm font-semibold w-10 text-right"
+                  :class="c.status === 'Completed' ? 'text-green-600' : 'text-blue-600'">
+                  {{ Math.round(c.progressPercent) }}%
+                </span>
+              </div>
+            </div>
+            <span v-if="c.status === 'Completed'" class="text-green-500 text-sm shrink-0">✓</span>
+            <span v-else class="text-xs text-gray-400 shrink-0">{{ c.status === 'Active' ? 'Aktif' : c.status }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Quizzes -->
+      <div class="mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">🧩 Quiz Tersedia</h2>
+        <div v-if="availableQuizzes.length === 0" class="card p-8 text-center text-gray-400">
+          Belum ada quiz yang tersedia.
+        </div>
+        <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="q in availableQuizzes" :key="q.id" class="card p-4 flex flex-col">
+            <div class="flex-1">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-semibold text-gray-900 text-sm line-clamp-2">{{ q.title }}</h3>
+                <span v-if="!q.canAttempt" class="badge-gray badge text-xs shrink-0">Selesai</span>
+                <span v-else-if="q.myAttempts > 0" class="badge-blue badge text-xs shrink-0">Ulangi</span>
+              </div>
+              <p class="text-xs text-gray-400 mb-1">📚 {{ q.courseName }}</p>
+              <div class="flex gap-3 text-xs text-gray-500 mb-3">
+                <span>{{ q.questionCount }} soal</span>
+                <span v-if="q.timeLimitMinutes">⏱ {{ q.timeLimitMinutes }} menit</span>
+                <span>{{ q.myAttempts }}/{{ q.maxAttempts }} percobaan</span>
+              </div>
+              <div v-if="q.bestScore !== null" class="mb-3">
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="text-gray-500">Nilai terbaik</span>
+                  <span :class="q.bestScore >= q.passScore ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'">
+                    {{ q.bestScore }}%
+                  </span>
+                </div>
+                <div class="bg-gray-100 rounded-full h-1.5">
+                  <div class="h-1.5 rounded-full"
+                    :class="q.bestScore >= q.passScore ? 'bg-green-500' : 'bg-red-400'"
+                    :style="`width: ${Math.min(q.bestScore, 100)}%`"></div>
+                </div>
+              </div>
+            </div>
+            <RouterLink v-if="q.canAttempt"
+              :to="`/courses/${q.courseId}/quizzes/${q.id}`"
+              class="btn-primary btn-sm text-center mt-auto">
+              {{ q.myAttempts === 0 ? 'Mulai Quiz' : 'Ulangi Quiz' }}
+            </RouterLink>
+            <div v-else class="text-xs text-center text-gray-400 mt-2">Percobaan habis</div>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- Teacher Dashboard -->
@@ -195,15 +267,21 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { dashboardApi } from '@/api/dashboard'
+import { quizzesApi } from '@/api/quizzes'
 
 const auth = useAuthStore()
 const loading = ref(true)
 const dashboard = ref(null)
+const availableQuizzes = ref([])
 
 onMounted(async () => {
   try {
-    const { data } = await dashboardApi.get()
-    dashboard.value = data
+    const [dashRes, quizRes] = await Promise.all([
+      dashboardApi.get(),
+      quizzesApi.getAvailable()
+    ])
+    dashboard.value = dashRes.data
+    availableQuizzes.value = quizRes.data
   } catch (e) {
     console.error('Dashboard load failed', e)
   } finally {

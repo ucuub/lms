@@ -2,6 +2,7 @@ import api from './axios'
 
 export const quizzesApi = {
   getByCourse: (courseId) => api.get(`/courses/${courseId}/quizzes`),
+  getAvailable: () => api.get('/quizzes/available'),
   getById: (id) => api.get(`/quizzes/${id}`),
   create: (courseId, data) => api.post(`/courses/${courseId}/quizzes`, data),
   update: (id, data) => api.put(`/quizzes/${id}`, data),

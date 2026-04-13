@@ -46,7 +46,8 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
 
         var isTeacher = await IsTeacherOrAdmin(quiz.CourseId);
         var isEnrolled = await db.Enrollments.AnyAsync(e => e.CourseId == quiz.CourseId && e.UserId == UserId);
-        if (!isTeacher && !isEnrolled) return Forbid();
+        // Non-enrolled boleh lihat quiz yang published
+        if (!isTeacher && !isEnrolled && !quiz.IsPublished) return Forbid();
 
         return Ok(ToQuizResponse(quiz));
     }
@@ -257,6 +258,48 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
 
     // ── Quiz Attempt ──────────────────────────────────────────────────────────
 
+    // GET /api/quizzes/available — semua quiz published, tanpa perlu enrollment
+    [HttpGet("quizzes/available")]
+    public async Task<IActionResult> GetAvailableQuizzes()
+    {
+        var quizzes = await db.Quizzes
+            .Include(q => q.Questions)
+            .Include(q => q.Course)
+            .Where(q => q.IsPublished)
+            .OrderByDescending(q => q.CreatedAt)
+            .ToListAsync();
+
+        var myAttempts = await db.QuizAttempts
+            .Where(a => a.UserId == UserId && a.SubmittedAt != null)
+            .GroupBy(a => a.QuizId)
+            .Select(g => new {
+                QuizId = g.Key,
+                Count = g.Count(),
+                BestPct = g.Max(a => a.MaxScore > 0 ? (double?)a.Score / a.MaxScore * 100 : null)
+            })
+            .ToListAsync();
+
+        var result = quizzes.Select(q => {
+            var att = myAttempts.FirstOrDefault(a => a.QuizId == q.Id);
+            return new {
+                q.Id,
+                q.Title,
+                q.Description,
+                q.TimeLimitMinutes,
+                q.MaxAttempts,
+                q.PassScore,
+                CourseId = q.CourseId,
+                CourseName = q.Course.Title,
+                QuestionCount = q.Questions.Count,
+                MyAttempts = att?.Count ?? 0,
+                BestScore = att?.BestPct.HasValue == true ? Math.Round(att.BestPct!.Value, 1) : (double?)null,
+                CanAttempt = (att?.Count ?? 0) < q.MaxAttempts
+            };
+        });
+
+        return Ok(result);
+    }
+
     [HttpPost("quizzes/{quizId:int}/start")]
     public async Task<ActionResult<QuizTakeResponse>> StartAttempt(int quizId)
     {
@@ -265,9 +308,6 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
             .FirstOrDefaultAsync(q => q.Id == quizId);
 
         if (quiz == null || !quiz.IsPublished) return NotFound();
-
-        var isEnrolled = await db.Enrollments.AnyAsync(e => e.CourseId == quiz.CourseId && e.UserId == UserId);
-        if (!isEnrolled) return Forbid();
 
         // Check max attempts
         var attemptCount = await db.QuizAttempts.CountAsync(a => a.QuizId == quizId && a.UserId == UserId);
