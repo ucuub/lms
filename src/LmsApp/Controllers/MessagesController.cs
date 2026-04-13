@@ -64,10 +64,14 @@ public class MessagesController(LmsDbContext db) : ControllerBase
 
         if (conv == null)
         {
+            // Coba ambil nama recipient dari AppUsers jika ada
+            var recipientUser = await db.Users.FindAsync(req.RecipientId);
+            var recipientName = req.RecipientName ?? recipientUser?.Name ?? req.RecipientId;
+
             conv = new Conversation
             {
                 User1Id = UserId, User1Name = UserName,
-                User2Id = req.RecipientId, User2Name = req.RecipientName
+                User2Id = req.RecipientId, User2Name = recipientName
             };
             db.Conversations.Add(conv);
             await db.SaveChangesAsync();
@@ -87,18 +91,20 @@ public class MessagesController(LmsDbContext db) : ControllerBase
         return CreatedAtAction(nameof(GetMessages), new { conversationId = conv.Id }, ToMessageDto(msg));
     }
 
-    // POST /api/messages/{id}/read
-    [HttpPost("{id:int}/read")]
-    public async Task<IActionResult> MarkRead(int id)
+    // POST /api/messages/{conversationId}/read  — mark all messages in conv as read
+    [HttpPost("{conversationId:int}/read")]
+    public async Task<IActionResult> MarkRead(int conversationId)
     {
-        var msg = await db.Messages.FindAsync(id);
-        if (msg == null) return NotFound();
+        var conv = await db.Conversations.FindAsync(conversationId);
+        if (conv == null) return NotFound();
+        if (conv.User1Id != UserId && conv.User2Id != UserId) return Forbid();
 
-        var conv = await db.Conversations.FindAsync(msg.ConversationId);
-        if (conv == null || (conv.User1Id != UserId && conv.User2Id != UserId)) return Forbid();
+        var unread = await db.Messages
+            .Where(m => m.ConversationId == conversationId && m.SenderId != UserId && !m.IsRead)
+            .ToListAsync();
+        unread.ForEach(m => m.IsRead = true);
+        if (unread.Any()) await db.SaveChangesAsync();
 
-        msg.IsRead = true;
-        await db.SaveChangesAsync();
         return NoContent();
     }
 

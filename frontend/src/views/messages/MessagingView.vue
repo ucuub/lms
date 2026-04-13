@@ -39,7 +39,7 @@
                   {{ conv.unreadCount > 9 ? '9+' : conv.unreadCount }}
                 </span>
               </div>
-              <p class="text-xs text-gray-400 truncate">{{ conv.lastMessagePreview || 'Belum ada pesan' }}</p>
+              <p class="text-xs text-gray-400 truncate">{{ conv.lastMessage || 'Belum ada pesan' }}</p>
             </div>
           </div>
         </button>
@@ -154,10 +154,8 @@ function initials(name) {
 }
 
 function otherPerson(conv) {
-  const me = auth.user?.userId
-  return conv.user1Id === me
-    ? { id: conv.user2Id, name: conv.user2Name }
-    : { id: conv.user1Id, name: conv.user1Name }
+  // ConversationDto sudah resolve otherUserId/otherUserName di backend
+  return { id: conv.otherUserId, name: conv.otherUserName }
 }
 
 function formatTime(dt) {
@@ -220,7 +218,7 @@ async function sendMessage() {
 async function startNewConversation() {
   sending.value = true
   try {
-    const { data } = await messagesApi.send({
+    await messagesApi.send({
       recipientId: newRecipientId.value.trim(),
       content: newFirstMsg.value.trim()
     })
@@ -228,10 +226,8 @@ async function startNewConversation() {
     newRecipientId.value = ''
     newFirstMsg.value = ''
     await loadConversations()
-    const conv = conversations.value.find(c =>
-      c.user1Id === data.senderId || c.user2Id === data.senderId
-    ) || conversations.value[0]
-    if (conv) await openConversation(conv)
+    // Buka conversation pertama (paling baru)
+    if (conversations.value.length > 0) await openConversation(conversations.value[0])
   } catch (e) {
     alert(e.response?.data?.message || 'Gagal mengirim pesan.')
   } finally {

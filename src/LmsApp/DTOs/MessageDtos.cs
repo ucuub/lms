@@ -20,4 +20,4 @@ public record MessageDto(
     DateTime CreatedAt
 );
 
-public record SendMessageRequest(string RecipientId, string RecipientName, string Content);
+public record SendMessageRequest(string RecipientId, string Content, string? RecipientName = null);
