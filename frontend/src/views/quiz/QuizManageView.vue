@@ -3,6 +3,7 @@
     <div class="flex items-center gap-3 mb-6">
       <button @click="$router.back()" class="btn-outline btn-sm">← Kembali</button>
       <h1 class="text-xl font-bold flex-1">Kelola Soal</h1>
+      <button @click="openBank" class="btn-outline btn-sm">📚 Import dari Bank</button>
       <button @click="showForm = !showForm" class="btn-primary btn-sm">+ Tambah Soal</button>
     </div>
 
@@ -77,6 +78,62 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal Import dari Bank Soal -->
+  <div v-if="showBank" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="showBank = false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[80vh]">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-900">Import dari Bank Soal</h3>
+        <button @click="showBank = false" class="text-gray-400 hover:text-gray-600">✕</button>
+      </div>
+
+      <!-- Filter -->
+      <div class="px-5 py-3 border-b border-gray-100">
+        <input v-model="bankFilter" @input="loadBank" class="input max-w-xs" placeholder="Filter kategori..." />
+      </div>
+
+      <!-- List soal -->
+      <div class="flex-1 overflow-y-auto px-5 py-3 space-y-2">
+        <div v-if="bankLoading" class="flex justify-center py-8">
+          <div class="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
+        </div>
+        <div v-else-if="bankItems.length === 0" class="text-center py-8 text-gray-400">
+          Bank soal kosong.
+        </div>
+        <label v-for="q in bankItems" :key="q.id"
+          class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-blue-50 cursor-pointer transition"
+          :class="selectedIds.includes(q.id) ? 'border-blue-400 bg-blue-50' : ''">
+          <input type="checkbox" :value="q.id" v-model="selectedIds" class="mt-0.5 shrink-0" />
+          <div class="flex-1 min-w-0">
+            <div class="flex gap-2 mb-1 flex-wrap">
+              <span v-if="q.category" class="badge-blue badge text-xs">{{ q.category }}</span>
+              <span class="badge-gray badge text-xs">{{ q.type }}</span>
+              <span class="text-xs text-gray-400">{{ q.points }} poin</span>
+            </div>
+            <p class="text-sm text-gray-800">{{ q.text }}</p>
+            <div v-if="q.options?.length" class="flex flex-wrap gap-1 mt-1">
+              <span v-for="o in q.options" :key="o.id"
+                :class="['text-xs px-2 py-0.5 rounded', o.isCorrect ? 'bg-green-100 text-green-700 font-medium' : 'bg-gray-100 text-gray-500']">
+                {{ o.text }}
+              </span>
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+        <span class="text-sm text-gray-500">{{ selectedIds.length }} soal dipilih</span>
+        <div class="flex gap-2">
+          <button @click="showBank = false" class="btn-outline btn-sm">Batal</button>
+          <button @click="doImport" :disabled="selectedIds.length === 0 || importing" class="btn-primary btn-sm">
+            {{ importing ? 'Mengimpor...' : `Import ${selectedIds.length} Soal` }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -88,6 +145,14 @@ const route = useRoute()
 const questions = ref([])
 const showForm = ref(false)
 const saving = ref(false)
+
+// Bank soal
+const showBank = ref(false)
+const bankItems = ref([])
+const bankFilter = ref('')
+const bankLoading = ref(false)
+const selectedIds = ref([])
+const importing = ref(false)
 
 const newQ = reactive({
   text: '',
@@ -134,6 +199,39 @@ async function deleteQ(id) {
   if (!confirm('Hapus soal ini?')) return
   await quizzesApi.deleteQuestion(id)
   load()
+}
+
+async function openBank() {
+  showBank.value = true
+  selectedIds.value = []
+  await loadBank()
+}
+
+async function loadBank() {
+  bankLoading.value = true
+  try {
+    const params = { pageSize: 50 }
+    if (bankFilter.value) params.category = bankFilter.value
+    const { data } = await quizzesApi.getBank(params)
+    bankItems.value = data.items
+  } finally {
+    bankLoading.value = false
+  }
+}
+
+async function doImport() {
+  if (!selectedIds.value.length) return
+  importing.value = true
+  try {
+    await quizzesApi.importFromBank(route.params.id, selectedIds.value)
+    showBank.value = false
+    selectedIds.value = []
+    load()
+  } catch (e) {
+    alert(e.response?.data?.message || 'Gagal import soal.')
+  } finally {
+    importing.value = false
+  }
 }
 
 onMounted(load)
