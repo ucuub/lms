@@ -227,24 +227,73 @@ app.MapControllers();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
+    var isSqlite = connStr.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase);
 
-    // Deteksi schema lama: jika salah satu tabel baru tidak ada, drop + recreate.
-    // EnsureCreated() tidak menambah tabel baru ke DB yang sudah ada.
-    if (app.Environment.IsDevelopment())
+    if (isSqlite)
     {
-        try
+        // SQLite: drop + recreate jika tabel baru belum ada (EnsureCreated tidak update schema)
+        if (app.Environment.IsDevelopment())
         {
-            _ = db.CourseResources.Any();
-            _ = db.Conversations.Any();
-            _ = db.ActivityLogs.Any();
+            try
+            {
+                _ = db.CourseResources.Any();
+                _ = db.Conversations.Any();
+                _ = db.ActivityLogs.Any();
+            }
+            catch
+            {
+                db.Database.EnsureDeleted();
+            }
         }
-        catch
-        {
-            db.Database.EnsureDeleted();
-        }
+        db.Database.EnsureCreated();
+    }
+    else
+    {
+        // PostgreSQL: EnsureCreated buat DB + semua tabel jika DB baru.
+        // Untuk DB yang sudah ada, jalankan CREATE TABLE IF NOT EXISTS untuk tabel baru.
+        db.Database.EnsureCreated();
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "Conversations" (
+                "Id"        SERIAL PRIMARY KEY,
+                "User1Id"   TEXT NOT NULL DEFAULT '',
+                "User1Name" TEXT NOT NULL DEFAULT '',
+                "User2Id"   TEXT NOT NULL DEFAULT '',
+                "User2Name" TEXT NOT NULL DEFAULT '',
+                "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "UpdatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "Messages" (
+                "Id"             SERIAL PRIMARY KEY,
+                "ConversationId" INTEGER NOT NULL
+                    REFERENCES "Conversations"("Id") ON DELETE CASCADE,
+                "SenderId"   TEXT NOT NULL DEFAULT '',
+                "SenderName" TEXT NOT NULL DEFAULT '',
+                "Content"    TEXT NOT NULL DEFAULT '',
+                "IsRead"     BOOLEAN NOT NULL DEFAULT FALSE,
+                "CreatedAt"  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "ActivityLogs" (
+                "Id"          SERIAL PRIMARY KEY,
+                "UserId"      TEXT NOT NULL DEFAULT '',
+                "UserName"    TEXT NOT NULL DEFAULT '',
+                "Action"      TEXT NOT NULL DEFAULT '',
+                "EntityType"  TEXT NOT NULL DEFAULT '',
+                "EntityId"    INTEGER,
+                "EntityTitle" TEXT,
+                "CourseId"    INTEGER,
+                "Metadata"    TEXT,
+                "Timestamp"   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
     }
 
-    db.Database.EnsureCreated();
     await DataSeeder.SeedAsync(db);
 }
 
