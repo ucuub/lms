@@ -65,7 +65,7 @@ public class MessagesController(LmsDbContext db) : ControllerBase
         if (conv == null)
         {
             // Coba ambil nama recipient dari AppUsers jika ada
-            var recipientUser = await db.Users.FindAsync(req.RecipientId);
+            var recipientUser = await db.AppUsers.FindAsync(req.RecipientId);
             var recipientName = req.RecipientName ?? recipientUser?.Name ?? req.RecipientId;
 
             conv = new Conversation
