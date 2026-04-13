@@ -75,7 +75,18 @@
               Mulai percakapan dengan mengirimkan pesan.
             </div>
             <div v-for="msg in messages" :key="msg.id"
-              :class="['flex', msg.senderId === auth.user?.userId ? 'justify-end' : 'justify-start']">
+              :class="['flex items-end gap-1 group', msg.senderId === auth.user?.userId ? 'justify-end' : 'justify-start']">
+
+              <!-- Tombol hapus (hanya pesan sendiri, muncul saat hover) -->
+              <button v-if="msg.senderId === auth.user?.userId"
+                @click="deleteMessage(msg)"
+                class="opacity-0 group-hover:opacity-100 transition text-gray-300 hover:text-red-400 mb-2 shrink-0"
+                title="Hapus pesan">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+
               <div :class="[
                 'max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm',
                 msg.senderId === auth.user?.userId
@@ -196,6 +207,16 @@ async function openConversation(conv) {
 function scrollToBottom() {
   if (msgContainer.value) {
     msgContainer.value.scrollTop = msgContainer.value.scrollHeight
+  }
+}
+
+async function deleteMessage(msg) {
+  if (!confirm('Hapus pesan ini?')) return
+  try {
+    await messagesApi.deleteMessage(msg.id)
+    messages.value = messages.value.filter(m => m.id !== msg.id)
+  } catch {
+    alert('Gagal menghapus pesan.')
   }
 }
 

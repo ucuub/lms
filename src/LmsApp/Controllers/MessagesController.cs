@@ -91,6 +91,19 @@ public class MessagesController(LmsDbContext db) : ControllerBase
         return CreatedAtAction(nameof(GetMessages), new { conversationId = conv.Id }, ToMessageDto(msg));
     }
 
+    // DELETE /api/messages/msg/{messageId}  — hapus pesan milik sendiri
+    [HttpDelete("msg/{messageId:int}")]
+    public async Task<IActionResult> DeleteMessage(int messageId)
+    {
+        var msg = await db.Messages.FindAsync(messageId);
+        if (msg == null) return NotFound();
+        if (msg.SenderId != UserId) return Forbid();
+
+        db.Messages.Remove(msg);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
     // POST /api/messages/{conversationId}/read  — mark all messages in conv as read
     [HttpPost("{conversationId:int}/read")]
     public async Task<IActionResult> MarkRead(int conversationId)
