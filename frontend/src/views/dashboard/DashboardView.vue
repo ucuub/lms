@@ -30,20 +30,20 @@
       <!-- Stats -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="card p-5">
-          <p class="text-sm text-gray-500">Kursus Aktif</p>
-          <p class="text-3xl font-bold text-blue-600 mt-1">{{ dashboard?.stats?.activeCourses ?? 0 }}</p>
+          <p class="text-sm text-gray-500">Kursus Terdaftar</p>
+          <p class="text-3xl font-bold text-blue-600 mt-1">{{ dashboard?.stats?.totalEnrolled ?? 0 }}</p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500">Selesai</p>
-          <p class="text-3xl font-bold text-green-600 mt-1">{{ dashboard?.stats?.completedCourses ?? 0 }}</p>
+          <p class="text-3xl font-bold text-green-600 mt-1">{{ dashboard?.stats?.totalCompleted ?? 0 }}</p>
         </div>
         <div class="card p-5">
-          <p class="text-sm text-gray-500">Tugas Pending</p>
-          <p class="text-3xl font-bold text-yellow-600 mt-1">{{ dashboard?.stats?.pendingAssignments ?? 0 }}</p>
+          <p class="text-sm text-gray-500">Pengumpulan</p>
+          <p class="text-3xl font-bold text-yellow-600 mt-1">{{ dashboard?.stats?.totalSubmissions ?? 0 }}</p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500">Sertifikat</p>
-          <p class="text-3xl font-bold text-purple-600 mt-1">{{ dashboard?.stats?.certificates ?? 0 }}</p>
+          <p class="text-3xl font-bold text-purple-600 mt-1">{{ dashboard?.stats?.totalCertificates ?? 0 }}</p>
         </div>
       </div>
 
@@ -57,11 +57,11 @@
         </h2>
         <div class="space-y-2">
           <RouterLink v-for="d in dashboard.upcomingDeadlines" :key="d.id + d.type"
-            :to="d.link || '#'"
+            :to="d.type === 'Assignment' ? `/courses/${d.courseId}/assignments/${d.id}` : `/courses/${d.courseId}/quizzes/${d.id}`"
             class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition">
             <div>
               <p class="text-sm font-medium text-gray-800">{{ d.title }}</p>
-              <p class="text-xs text-gray-500">{{ d.courseTitle }} · {{ d.type === 'assignment' ? 'Tugas' : 'Quiz' }}</p>
+              <p class="text-xs text-gray-500">{{ d.courseTitle }} · {{ d.type === 'Assignment' ? 'Tugas' : 'Quiz' }}</p>
             </div>
             <span :class="['text-xs font-medium px-2 py-0.5 rounded-full', isUrgent(d.dueDate) ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700']">
               {{ formatDeadline(d.dueDate) }}
@@ -99,12 +99,12 @@
               <h3 class="font-semibold text-gray-900 line-clamp-1 mb-1">{{ c.title }}</h3>
               <div class="flex justify-between text-xs text-gray-500 mb-2">
                 <span>{{ c.completedModules }}/{{ c.totalModules }} modul</span>
-                <span :class="c.isCompleted ? 'text-green-600 font-medium' : ''">
-                  {{ c.isCompleted ? 'Selesai' : `${c.progressPercentage}%` }}
+                <span :class="c.status === 'Completed' ? 'text-green-600 font-medium' : ''">
+                  {{ c.status === 'Completed' ? 'Selesai' : `${c.progressPercent}%` }}
                 </span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" :class="c.isCompleted ? 'bg-green-500' : ''" :style="`width: ${c.progressPercentage}%`"></div>
+                <div class="progress-fill" :class="c.status === 'Completed' ? 'bg-green-500' : ''" :style="`width: ${c.progressPercent}%`"></div>
               </div>
             </div>
           </RouterLink>
@@ -196,12 +196,12 @@
           <p class="text-3xl font-bold text-green-600 mt-1">{{ dashboard?.stats?.totalStudents ?? 0 }}</p>
         </div>
         <div class="card p-5">
-          <p class="text-sm text-gray-500">Quiz Aktif</p>
-          <p class="text-3xl font-bold text-yellow-600 mt-1">{{ dashboard?.stats?.activeQuizzes ?? 0 }}</p>
+          <p class="text-sm text-gray-500">Pengumpulan Hari Ini</p>
+          <p class="text-3xl font-bold text-yellow-600 mt-1">{{ dashboard?.stats?.totalSubmissionsToday ?? 0 }}</p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500">Perlu Dinilai</p>
-          <p class="text-3xl font-bold text-red-600 mt-1">{{ dashboard?.stats?.ungradedSubmissions ?? 0 }}</p>
+          <p class="text-3xl font-bold text-red-600 mt-1">{{ dashboard?.stats?.totalPendingGrading ?? 0 }}</p>
         </div>
       </div>
 
@@ -238,7 +238,7 @@
           </div>
           <div class="flex gap-4 text-sm text-gray-500">
             <span>{{ c.enrollmentCount }} siswa</span>
-            <span>{{ c.moduleCount }} modul</span>
+            <span>{{ Math.round(c.completionRate) }}% selesai</span>
             <span v-if="c.averageRating > 0">⭐ {{ c.averageRating.toFixed(1) }}</span>
           </div>
         </RouterLink>
