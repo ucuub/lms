@@ -32,8 +32,9 @@ const routes = [
       { path: 'courses/:courseId/quizzes/:id/manage', name: 'QuizManage', component: () => import('@/views/quiz/QuizManageView.vue'), meta: { role: 'teacher' } },
 
       // Forum
-      { path: 'courses/:courseId/forum',            name: 'Forum',       component: () => import('@/views/forum/ForumView.vue') },
-      { path: 'courses/:courseId/forum/:threadId',  name: 'ForumThread', component: () => import('@/views/forum/ThreadView.vue') },
+      { path: 'courses/:courseId/forum',               name: 'Forum',       component: () => import('@/views/forum/ForumView.vue') },
+      { path: 'courses/:courseId/forum/create',         name: 'ForumCreate', component: () => import('@/views/forum/ForumCreateView.vue') },
+      { path: 'courses/:courseId/forum/:threadId(\\d+)', name: 'ForumThread', component: () => import('@/views/forum/ThreadView.vue') },
 
       // Gradebook
       { path: 'courses/:courseId/gradebook', name: 'Gradebook', component: () => import('@/views/gradebook/GradebookView.vue') },
