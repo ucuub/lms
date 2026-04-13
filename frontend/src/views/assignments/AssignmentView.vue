@@ -29,8 +29,10 @@ const assignment = ref(null), mySubmission = ref(null), submitting = ref(false)
 const form = ref({ text: '' }), fileInput = ref(null)
 async function submit() {
   submitting.value = true
+  const file = fileInput.value?.files[0]
+  if (fileInput.value) fileInput.value.value = '' // reset agar file yang sama bisa dipilih lagi
   try {
-    const { data } = await assignmentsApi.submit(route.params.id, form.value.text, fileInput.value?.files[0])
+    const { data } = await assignmentsApi.submit(route.params.id, form.value.text, file)
     mySubmission.value = data
   } finally { submitting.value = false }
 }

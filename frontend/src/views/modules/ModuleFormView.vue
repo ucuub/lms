@@ -141,8 +141,8 @@ async function save() {
 async function uploadFile(e) {
   const file = e.target.files?.[0]
   if (!file) return
+  fileInput.value.value = '' // reset DULU agar file yang sama bisa dipilih lagi
   await doUpload(file)
-  fileInput.value.value = ''
 }
 
 async function onDrop(e) {
