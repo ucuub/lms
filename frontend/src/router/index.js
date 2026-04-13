@@ -61,6 +61,11 @@ const routes = [
 
       // Activity
       { path: 'activity', name: 'Activity', component: () => import('@/views/activity/ActivityView.vue') },
+
+      // Practice Quiz (standalone — tanpa enroll kursus)
+      { path: 'practice',                          name: 'PracticeList',   component: () => import('@/views/practice/PracticeListView.vue') },
+      { path: 'practice/attempt/:attemptId',        name: 'PracticeTake',   component: () => import('@/views/practice/PracticeTakeView.vue') },
+      { path: 'practice/result/:attemptId',         name: 'PracticeResult', component: () => import('@/views/practice/PracticeResultView.vue') },
     ]
   },
 

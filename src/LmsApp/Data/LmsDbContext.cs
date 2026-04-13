@@ -63,6 +63,11 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     // Activity Log
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
+    // Practice Quiz (standalone — terpisah dari Course Quiz)
+    public DbSet<PracticeQuiz> PracticeQuizzes => Set<PracticeQuiz>();
+    public DbSet<PracticeAttempt> PracticeAttempts => Set<PracticeAttempt>();
+    public DbSet<PracticeAttemptAnswer> PracticeAttemptAnswers => Set<PracticeAttemptAnswer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -382,6 +387,44 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.Property(a => a.EntityType).HasMaxLength(100).IsRequired();
             e.HasIndex(a => new { a.UserId, a.Timestamp });
             e.HasIndex(a => new { a.CourseId, a.Timestamp });
+        });
+
+        // PracticeQuiz — standalone, tidak terkait Course
+        modelBuilder.Entity<PracticeQuiz>(e =>
+        {
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Title).HasMaxLength(200).IsRequired();
+            e.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+            e.HasMany(p => p.Attempts)
+                .WithOne(a => a.PracticeQuiz)
+                .HasForeignKey(a => a.PracticeQuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PracticeAttempt>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.UserId).HasMaxLength(100).IsRequired();
+            e.HasIndex(a => new { a.PracticeQuizId, a.UserId });
+            e.HasMany(a => a.Answers)
+                .WithOne(ans => ans.Attempt)
+                .HasForeignKey(ans => ans.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PracticeAttemptAnswer>(e =>
+        {
+            e.HasKey(ans => ans.Id);
+            // FK ke QuestionBank — jangan cascade delete (bank soal tidak terkait quiz ini)
+            e.HasOne(ans => ans.BankQuestion)
+                .WithMany()
+                .HasForeignKey(ans => ans.BankQuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // FK ke QuestionBankOption (nullable)
+            e.HasOne(ans => ans.SelectedOption)
+                .WithMany()
+                .HasForeignKey(ans => ans.SelectedOptionId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

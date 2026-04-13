@@ -131,6 +131,7 @@ builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
 builder.Services.AddScoped<ICompletionService, CompletionService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
+builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -242,6 +243,7 @@ app.MapControllers();
                 _ = db.CourseResources.Any();
                 _ = db.Conversations.Any();
                 _ = db.ActivityLogs.Any();
+                _ = db.PracticeQuizzes.Any();
             }
             catch
             {
@@ -293,6 +295,50 @@ app.MapControllers();
                 "CourseId"    INTEGER,
                 "Metadata"    TEXT,
                 "Timestamp"   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PracticeQuizzes" (
+                "Id"               SERIAL PRIMARY KEY,
+                "Title"            TEXT NOT NULL DEFAULT '',
+                "Description"      TEXT,
+                "QuestionCount"    INTEGER NOT NULL DEFAULT 10,
+                "ShuffleQuestions" BOOLEAN NOT NULL DEFAULT TRUE,
+                "ShuffleOptions"   BOOLEAN NOT NULL DEFAULT TRUE,
+                "TimeLimitMinutes" INTEGER,
+                "IsActive"         BOOLEAN NOT NULL DEFAULT TRUE,
+                "CreatedBy"        TEXT NOT NULL DEFAULT '',
+                "CreatedByName"    TEXT NOT NULL DEFAULT '',
+                "CreatedAt"        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PracticeAttempts" (
+                "Id"              SERIAL PRIMARY KEY,
+                "PracticeQuizId"  INTEGER NOT NULL
+                    REFERENCES "PracticeQuizzes"("Id") ON DELETE CASCADE,
+                "UserId"          TEXT NOT NULL DEFAULT '',
+                "UserName"        TEXT NOT NULL DEFAULT '',
+                "StartedAt"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "SubmittedAt"     TIMESTAMPTZ,
+                "Score"           DOUBLE PRECISION,
+                "TotalQuestions"  INTEGER NOT NULL DEFAULT 0,
+                "CorrectAnswers"  INTEGER
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PracticeAttemptAnswers" (
+                "Id"               SERIAL PRIMARY KEY,
+                "AttemptId"        INTEGER NOT NULL
+                    REFERENCES "PracticeAttempts"("Id") ON DELETE CASCADE,
+                "BankQuestionId"   INTEGER NOT NULL
+                    REFERENCES "QuestionBank"("Id") ON DELETE RESTRICT,
+                "SelectedOptionId" INTEGER
+                    REFERENCES "QuestionBankOptions"("Id") ON DELETE SET NULL,
+                "DisplayOrder"     INTEGER NOT NULL DEFAULT 0
             )
             """);
     }

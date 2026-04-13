@@ -1178,6 +1178,154 @@ Jadwal live session: Setiap Sabtu pukul 19.00 WIB via Zoom. Link akan dikirim H-
         await db.SaveChangesAsync();
 
         Console.WriteLine("[Seeder] ✅ Data contoh berhasil dibuat: 3 kursus, modul, quiz, assignment, enrollment.");
+
+        // ── Seed Question Bank ─────────────────────────────────────────────────
+        var bankQuestions = new List<QuestionBank>
+        {
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Pemrograman Web",
+                Text = "Apa kepanjangan dari HTML?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "HyperText Markup Language", IsCorrect = true },
+                    new() { Text = "HighText Machine Language", IsCorrect = false },
+                    new() { Text = "HyperText and links Markup Language", IsCorrect = false },
+                    new() { Text = "HyperText Makeup Language", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Pemrograman Web",
+                Text = "CSS singkatan dari apa?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "Cascading Style Sheets", IsCorrect = true },
+                    new() { Text = "Creative Style System", IsCorrect = false },
+                    new() { Text = "Colorful Style Sheets", IsCorrect = false },
+                    new() { Text = "Computer Style Sheets", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Pemrograman Web",
+                Text = "JavaScript adalah bahasa pemrograman yang berjalan di sisi client (browser).", Type = QuestionType.TrueFalse, Points = 5,
+                Options = [
+                    new() { Text = "Benar", IsCorrect = true },
+                    new() { Text = "Salah", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Pemrograman Web",
+                Text = "Tag HTML mana yang digunakan untuk membuat hyperlink?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "<a>", IsCorrect = true },
+                    new() { Text = "<link>", IsCorrect = false },
+                    new() { Text = "<href>", IsCorrect = false },
+                    new() { Text = "<url>", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Pemrograman Web",
+                Text = "Property CSS apa yang digunakan untuk mengubah warna latar belakang?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "background-color", IsCorrect = true },
+                    new() { Text = "bg-color", IsCorrect = false },
+                    new() { Text = "color-background", IsCorrect = false },
+                    new() { Text = "bgcolor", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher2.UserId, OwnerName = teacher2.Name, Category = "Basis Data",
+                Text = "Perintah SQL yang digunakan untuk mengambil data dari tabel adalah?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "SELECT", IsCorrect = true },
+                    new() { Text = "GET", IsCorrect = false },
+                    new() { Text = "FETCH", IsCorrect = false },
+                    new() { Text = "RETRIEVE", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher2.UserId, OwnerName = teacher2.Name, Category = "Basis Data",
+                Text = "SQL adalah singkatan dari Structured Query Language.", Type = QuestionType.TrueFalse, Points = 5,
+                Options = [
+                    new() { Text = "Benar", IsCorrect = true },
+                    new() { Text = "Salah", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher2.UserId, OwnerName = teacher2.Name, Category = "Basis Data",
+                Text = "Klausa SQL mana yang digunakan untuk memfilter hasil query?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "WHERE", IsCorrect = true },
+                    new() { Text = "FILTER", IsCorrect = false },
+                    new() { Text = "HAVING", IsCorrect = false },
+                    new() { Text = "LIMIT", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Algoritma",
+                Text = "Struktur data LIFO (Last In First Out) dikenal sebagai?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "Stack", IsCorrect = true },
+                    new() { Text = "Queue", IsCorrect = false },
+                    new() { Text = "Array", IsCorrect = false },
+                    new() { Text = "Linked List", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher.UserId, OwnerName = teacher.Name, Category = "Algoritma",
+                Text = "Array memiliki ukuran yang bisa berubah-ubah secara dinamis.", Type = QuestionType.TrueFalse, Points = 5,
+                Options = [
+                    new() { Text = "Benar", IsCorrect = false },
+                    new() { Text = "Salah", IsCorrect = true }
+                ]
+            },
+            new() {
+                OwnerId = teacher2.UserId, OwnerName = teacher2.Name, Category = "Jaringan",
+                Text = "Protokol yang digunakan untuk mengakses website adalah?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "HTTP/HTTPS", IsCorrect = true },
+                    new() { Text = "FTP", IsCorrect = false },
+                    new() { Text = "SMTP", IsCorrect = false },
+                    new() { Text = "SSH", IsCorrect = false }
+                ]
+            },
+            new() {
+                OwnerId = teacher2.UserId, OwnerName = teacher2.Name, Category = "Jaringan",
+                Text = "IP Address versi 4 (IPv4) terdiri dari berapa bit?", Type = QuestionType.MultipleChoice, Points = 10,
+                Options = [
+                    new() { Text = "32 bit", IsCorrect = true },
+                    new() { Text = "64 bit", IsCorrect = false },
+                    new() { Text = "16 bit", IsCorrect = false },
+                    new() { Text = "128 bit", IsCorrect = false }
+                ]
+            },
+        };
+        db.QuestionBank.AddRange(bankQuestions);
+        await db.SaveChangesAsync();
+
+        // ── Seed Practice Quiz ─────────────────────────────────────────────────
+        db.PracticeQuizzes.Add(new PracticeQuiz
+        {
+            Title           = "Latihan Umum Teknologi Informasi",
+            Description     = "10 soal acak dari berbagai kategori: Web, Database, Algoritma, dan Jaringan.",
+            QuestionCount   = 10,
+            ShuffleQuestions = true,
+            ShuffleOptions  = true,
+            TimeLimitMinutes = 15,
+            CreatedBy       = teacher.UserId,
+            CreatedByName   = teacher.Name
+        });
+        db.PracticeQuizzes.Add(new PracticeQuiz
+        {
+            Title           = "Kuis Cepat Pemrograman Web",
+            Description     = "5 soal fokus pada HTML, CSS, dan JavaScript.",
+            QuestionCount   = 5,
+            ShuffleQuestions = true,
+            ShuffleOptions  = true,
+            TimeLimitMinutes = 10,
+            CreatedBy       = teacher.UserId,
+            CreatedByName   = teacher.Name
+        });
+        await db.SaveChangesAsync();
+
+        Console.WriteLine("[Seeder] ✅ Bank soal (12 soal) + 2 practice quiz berhasil dibuat.");
     }
 
     private static async Task<AppUser> CreateUser(
