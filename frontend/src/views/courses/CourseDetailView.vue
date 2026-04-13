@@ -14,7 +14,7 @@
           <div class="flex gap-6 mt-4 text-sm opacity-80">
             <span>👥 {{ course.enrollmentCount }} siswa</span>
             <span>⭐ {{ course.averageRating > 0 ? course.averageRating.toFixed(1) : '-' }} ({{ course.reviewCount }} ulasan)</span>
-            <span>📚 {{ course.modules?.length ?? 0 }} modul</span>
+            <span>📚 {{ allModules.length }} modul</span>
           </div>
         </div>
       </div>
@@ -33,15 +33,15 @@
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
             <h2 class="font-semibold text-gray-900">Materi Kursus</h2>
-            <RouterLink v-if="auth.isTeacher && isMyOwnCourse" :to="`/courses/${course.id}/modules/create`" class="btn-outline btn-sm">+ Modul</RouterLink>
+            <RouterLink v-if="canManageCourse" :to="`/courses/${course.id}/modules/create`" class="btn-outline btn-sm">+ Modul</RouterLink>
           </div>
 
-          <div v-if="course.modules?.length === 0" class="text-center py-8 text-gray-400">
+          <div v-if="allModules.length === 0" class="text-center py-8 text-gray-400">
             Belum ada modul.
           </div>
 
           <div class="space-y-2">
-            <div v-for="module in course.modules" :key="module.id"
+            <div v-for="module in allModules" :key="module.id"
               class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition">
               <div class="flex items-center gap-3">
                 <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-medium">
@@ -53,17 +53,17 @@
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <RouterLink v-if="course.isEnrolled || auth.isTeacher"
+                <RouterLink v-if="course.isEnrolled || canManageCourse"
                   :to="`/courses/${course.id}/modules/${module.id}`"
                   class="text-blue-600 text-sm hover:underline">
                   Lihat
                 </RouterLink>
-                <RouterLink v-if="auth.isTeacher && isMyOwnCourse"
+                <RouterLink v-if="canManageCourse"
                   :to="`/courses/${course.id}/modules/${module.id}/edit`"
                   class="text-gray-400 hover:text-gray-700 text-sm transition" title="Edit modul">
                   ✏️
                 </RouterLink>
-                <svg v-if="!course.isEnrolled && !auth.isTeacher" class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg v-if="!course.isEnrolled && !canManageCourse" class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
               </div>
@@ -184,7 +184,7 @@
             <RouterLink :to="`/courses/${course.id}/certificate`" class="btn-outline w-full">🎓 Sertifikat</RouterLink>
           </div>
 
-          <div v-if="isMyOwnCourse" class="space-y-2 mt-3">
+          <div v-if="canManageCourse" class="space-y-2 mt-3">
             <RouterLink :to="`/courses/${course.id}/edit`" class="btn-outline w-full">Edit Kursus</RouterLink>
             <RouterLink :to="`/courses/${course.id}/gradebook`" class="btn-outline w-full">Gradebook</RouterLink>
             <RouterLink :to="`/courses/${course.id}/forum`" class="btn-outline w-full">Forum</RouterLink>
@@ -214,9 +214,19 @@ const enrollLoading = ref(false)
 const reviewLoading = ref(false)
 const review = ref({ rating: 5, comment: '' })
 
-const isMyOwnCourse = computed(() =>
-  auth.isTeacher && course.value?.instructorId === auth.user?.userId
+// Admin bisa kelola semua kursus; teacher hanya kursus miliknya sendiri
+const canManageCourse = computed(() =>
+  auth.isAdmin || (auth.isTeacher && course.value?.instructorId === auth.user?.userId)
 )
+
+// Gabungkan semua modul: dari sections + yang tidak punya section
+// API mengembalikan `sections[].modules` dan `unsectionedModules`, bukan `modules`
+const allModules = computed(() => {
+  if (!course.value) return []
+  const fromSections = (course.value.sections ?? []).flatMap(s => s.modules ?? [])
+  const unsectioned  = course.value.unsectionedModules ?? []
+  return [...fromSections, ...unsectioned].sort((a, b) => a.order - b.order)
+})
 
 async function load() {
   try {
