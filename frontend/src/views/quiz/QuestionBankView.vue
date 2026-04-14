@@ -85,8 +85,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { quizzesApi } from '@/api/quizzes'
 import Pagination from '@/components/common/Pagination.vue'
+
+const route = useRoute()
 
 const items = ref([])
 const page = ref(1)
@@ -128,5 +131,8 @@ async function del(id) {
   load()
 }
 
-onMounted(load)
+onMounted(() => {
+  if (route.query.new === '1') showForm.value = true
+  load()
+})
 </script>

@@ -133,6 +133,8 @@ async function save() {
       await modulesApi.create(route.params.courseId, form.value)
     }
     router.push(`/courses/${route.params.courseId}`)
+  } catch (e) {
+    alert(e.response?.data?.message || 'Gagal menyimpan modul. Silakan coba lagi.')
   } finally {
     saving.value = false
   }

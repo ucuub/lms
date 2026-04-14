@@ -244,6 +244,11 @@ app.MapControllers();
                 _ = db.Conversations.Any();
                 _ = db.ActivityLogs.Any();
                 _ = db.PracticeQuizzes.Any();
+                _ = db.CourseSections.Any();
+                // Deteksi kolom SectionId di CourseModules — jika kolom belum ada akan throw
+                _ = db.CourseModules.Any(m => m.SectionId == null);
+                // Deteksi tabel Exam baru
+                _ = db.Exams.Any();
             }
             catch
             {

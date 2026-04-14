@@ -66,6 +66,14 @@ const routes = [
       { path: 'practice',                          name: 'PracticeList',   component: () => import('@/views/practice/PracticeListView.vue') },
       { path: 'practice/attempt/:attemptId',        name: 'PracticeTake',   component: () => import('@/views/practice/PracticeTakeView.vue') },
       { path: 'practice/result/:attemptId',         name: 'PracticeResult', component: () => import('@/views/practice/PracticeResultView.vue') },
+
+      // Standalone Exam
+      { path: 'exams',                             name: 'ExamList',    component: () => import('@/views/exams/ExamListView.vue') },
+      { path: 'exams/create',                      name: 'ExamCreate',  component: () => import('@/views/exams/ExamManageView.vue'), meta: { role: 'admin' } },
+      { path: 'exams/:id',                         name: 'ExamTake',    component: () => import('@/views/exams/ExamTakeView.vue') },
+      { path: 'exams/:id/manage',                  name: 'ExamManage',  component: () => import('@/views/exams/ExamManageView.vue'), meta: { role: 'admin' } },
+      { path: 'exams/:id/grading',                 name: 'ExamGrading', component: () => import('@/views/exams/ExamGradingView.vue'), meta: { role: 'admin' } },
+      { path: 'exam-attempts/:attemptId/result',   name: 'ExamResult',  component: () => import('@/views/exams/ExamResultView.vue') },
     ]
   },
 

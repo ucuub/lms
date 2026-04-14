@@ -8,7 +8,7 @@ public record ModuleRequest(
     string? Content,
     string? VideoUrl,
     int Order = 0,
-    bool IsPublished = false,
+    bool IsPublished = true,
     int DurationMinutes = 0,
     int? SectionId = null          // NEW: optional, null = unsectioned (backward compatible)
 );

@@ -68,6 +68,13 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<PracticeAttempt> PracticeAttempts => Set<PracticeAttempt>();
     public DbSet<PracticeAttemptAnswer> PracticeAttemptAnswers => Set<PracticeAttemptAnswer>();
 
+    // Standalone Exam (admin buat, semua user kerjakan)
+    public DbSet<Exam> Exams => Set<Exam>();
+    public DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
+    public DbSet<ExamQuestionOption> ExamQuestionOptions => Set<ExamQuestionOption>();
+    public DbSet<ExamAttempt> ExamAttempts => Set<ExamAttempt>();
+    public DbSet<ExamAnswer> ExamAnswers => Set<ExamAnswer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -425,6 +432,53 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(ans => ans.SelectedOptionId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Standalone Exam
+        modelBuilder.Entity<Exam>(e =>
+        {
+            e.HasKey(ex => ex.Id);
+            e.Property(ex => ex.Title).HasMaxLength(200).IsRequired();
+            e.Property(ex => ex.CreatedBy).HasMaxLength(100).IsRequired();
+            e.HasMany(ex => ex.Questions)
+                .WithOne(q => q.Exam)
+                .HasForeignKey(q => q.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(ex => ex.Attempts)
+                .WithOne(a => a.Exam)
+                .HasForeignKey(a => a.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamQuestion>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.HasMany(q => q.Options)
+                .WithOne(o => o.Question)
+                .HasForeignKey(o => o.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamQuestionOption>(e => e.HasKey(o => o.Id));
+
+        modelBuilder.Entity<ExamAttempt>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.UserId).HasMaxLength(100).IsRequired();
+            e.HasIndex(a => new { a.ExamId, a.UserId });
+            e.HasMany(a => a.Answers)
+                .WithOne(ans => ans.Attempt)
+                .HasForeignKey(ans => ans.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamAnswer>(e =>
+        {
+            e.HasKey(ans => ans.Id);
+            e.HasOne(ans => ans.Question)
+                .WithMany()
+                .HasForeignKey(ans => ans.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -131,14 +131,16 @@ public class CoursesController(LmsDbContext db, IFileUploadService fileService, 
                     .Where(m => isTeacher || m.IsPublished)
                     .Select(m => new ModuleSummaryDto(
                         m.Id, m.Title, m.Order, m.IsPublished,
-                        m.DurationMinutes, m.ContentType.ToString(), m.SectionId))));
+                        m.DurationMinutes, m.ContentType.ToString(), m.SectionId,
+                        m.VideoEmbedId, m.VideoProvider == VideoProvider.None ? null : m.VideoProvider.ToString()))));
 
         // Modul tanpa section (backward compat — data lama)
         var unsectionedModules = course.Modules
             .Where(m => m.SectionId == null && (isTeacher || m.IsPublished))
             .Select(m => new ModuleSummaryDto(
                 m.Id, m.Title, m.Order, m.IsPublished,
-                m.DurationMinutes, m.ContentType.ToString(), null));
+                m.DurationMinutes, m.ContentType.ToString(), null,
+                m.VideoEmbedId, m.VideoProvider == VideoProvider.None ? null : m.VideoProvider.ToString()));
 
         return Ok(new CourseDetailResponse(
             course.Id, course.Title, course.Description, course.ThumbnailUrl,

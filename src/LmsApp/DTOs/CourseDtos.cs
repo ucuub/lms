@@ -62,7 +62,9 @@ public record ModuleSummaryDto(
     bool IsPublished,
     int DurationMinutes,
     string ContentType,
-    int? SectionId = null    // nullable default agar backward compat saat construct lama
+    int? SectionId = null,       // nullable default agar backward compat saat construct lama
+    string? VideoEmbedId = null, // untuk preview thumbnail di course detail
+    string? VideoProvider = null
 );
 
 public record AssignmentSummaryDto(
