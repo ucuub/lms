@@ -91,6 +91,11 @@
             class="px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             Nilai
           </RouterLink>
+          <button v-if="auth.isTeacher && (auth.isAdmin || qs.createdBy === auth.user?.id)"
+            @click="deleteSet(qs)"
+            class="px-3 py-2 text-sm font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            Hapus
+          </button>
         </div>
       </div>
     </div>
@@ -114,4 +119,14 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function deleteSet(qs) {
+  if (!confirm(`Hapus ujian "${qs.title}"? Semua soal dan jawaban siswa akan ikut terhapus.`)) return
+  try {
+    await questionSetsApi.delete(qs.id)
+    sets.value = sets.value.filter(s => s.id !== qs.id)
+  } catch (e) {
+    alert(e?.response?.data?.message ?? 'Gagal menghapus ujian.')
+  }
+}
 </script>
