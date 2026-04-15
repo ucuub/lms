@@ -14,47 +14,39 @@ public class CourseSectionService(LmsDbContext db) : ICourseSectionService
         var sections = await db.CourseSections
             .Where(s => s.CourseId == courseId && (includeHidden || s.IsVisible))
             .OrderBy(s => s.Order)
-            .Select(s => new
-            {
-                s.Id, s.CourseId, s.Title, s.Description,
-                s.Order, s.IsVisible, s.CreatedAt,
-                Modules = s.Modules
-                    .Where(m => includeHidden || m.IsPublished)
-                    .OrderBy(m => m.Order)
-                    .Select(m => new ModuleSummaryDto(
-                        m.Id, m.Title, m.Order, m.IsPublished,
-                        m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
-                    .ToList()
-            })
+            .Include(s => s.Modules)
             .ToListAsync();
 
         return sections.Select(s => new SectionDetailDto(
             s.Id, s.CourseId, s.Title, s.Description,
-            s.Order, s.IsVisible, s.CreatedAt, s.Modules));
+            s.Order, s.IsVisible, s.CreatedAt,
+            s.Modules
+                .Where(m => includeHidden || m.IsPublished)
+                .OrderBy(m => m.Order)
+                .Select(m => new ModuleSummaryDto(
+                    m.Id, m.Title, m.Order, m.IsPublished,
+                    m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
+                .ToList()));
     }
 
     public async Task<SectionDetailDto?> GetByIdAsync(int sectionId, bool includeHidden)
     {
         var s = await db.CourseSections
             .Where(s => s.Id == sectionId && (includeHidden || s.IsVisible))
-            .Select(s => new
-            {
-                s.Id, s.CourseId, s.Title, s.Description,
-                s.Order, s.IsVisible, s.CreatedAt,
-                Modules = s.Modules
-                    .Where(m => includeHidden || m.IsPublished)
-                    .OrderBy(m => m.Order)
-                    .Select(m => new ModuleSummaryDto(
-                        m.Id, m.Title, m.Order, m.IsPublished,
-                        m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
-                    .ToList()
-            })
+            .Include(s => s.Modules)
             .FirstOrDefaultAsync();
 
         if (s == null) return null;
         return new SectionDetailDto(
             s.Id, s.CourseId, s.Title, s.Description,
-            s.Order, s.IsVisible, s.CreatedAt, s.Modules);
+            s.Order, s.IsVisible, s.CreatedAt,
+            s.Modules
+                .Where(m => includeHidden || m.IsPublished)
+                .OrderBy(m => m.Order)
+                .Select(m => new ModuleSummaryDto(
+                    m.Id, m.Title, m.Order, m.IsPublished,
+                    m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
+                .ToList());
     }
 
     // ── Mutasi Section ────────────────────────────────────────────────────────
