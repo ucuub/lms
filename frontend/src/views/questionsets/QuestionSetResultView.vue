@@ -74,7 +74,7 @@
       </div>
 
       <div class="mt-6 flex gap-3">
-        <RouterLink to="/question-sets"
+        <RouterLink to="/ujian"
           class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
           Kembali ke Daftar
         </RouterLink>

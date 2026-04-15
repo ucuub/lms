@@ -1,12 +1,12 @@
 <template>
   <div class="p-6 max-w-4xl mx-auto">
     <div class="flex items-center gap-3 mb-6">
-      <RouterLink to="/question-sets" class="text-gray-400 hover:text-gray-600">
+      <RouterLink to="/ujian" class="text-gray-400 hover:text-gray-600">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
       </RouterLink>
-      <h1 class="text-2xl font-bold text-gray-900">{{ isEdit ? 'Edit Paket Soal' : 'Buat Paket Soal' }}</h1>
+      <h1 class="text-2xl font-bold text-gray-900">{{ isEdit ? 'Edit Ujian' : 'Buat Ujian' }}</h1>
     </div>
 
     <!-- Form info dasar -->
@@ -331,7 +331,7 @@ async function saveInfo() {
     } else {
       const { data } = await questionSetsApi.create(payload)
       setId.value = data.id
-      router.replace(`/question-sets/${data.id}/manage`)
+      router.replace(`/ujian/${data.id}/manage`)
     }
   } finally {
     saving.value = false

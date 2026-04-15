@@ -6,7 +6,7 @@
     <!-- Error -->
     <div v-else-if="error" class="max-w-2xl mx-auto text-center py-20">
       <p class="text-red-500 mb-4">{{ error }}</p>
-      <RouterLink to="/question-sets" class="text-blue-600 hover:underline text-sm">Kembali ke Daftar</RouterLink>
+      <RouterLink to="/ujian" class="text-blue-600 hover:underline text-sm">Kembali ke Daftar</RouterLink>
     </div>
 
     <!-- Submitted -->
@@ -18,7 +18,7 @@
       </div>
       <h2 class="text-xl font-bold text-gray-900 mb-2">Jawaban Dikumpulkan!</h2>
       <p class="text-gray-500 text-sm mb-6">Jawabanmu sudah berhasil disimpan.</p>
-      <RouterLink :to="`/question-set-attempts/${attemptId}/result`"
+      <RouterLink :to="`/ujian-attempts/${attemptId}/result`"
         class="inline-block px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
         Lihat Hasil
       </RouterLink>
