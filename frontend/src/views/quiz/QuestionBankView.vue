@@ -16,7 +16,7 @@
           </div>
           <div>
             <label class="label">Tipe</label>
-            <select v-model="newQ.type" class="select">
+            <select v-model="newQ.type" @change="onTypeChange" class="select">
               <option value="MultipleChoice">Pilihan Ganda</option>
               <option value="TrueFalse">Benar/Salah</option>
               <option value="Essay">Essay</option>
@@ -31,15 +31,18 @@
           <label class="label">Poin</label>
           <input v-model.number="newQ.points" type="number" class="input w-24" min="1" />
         </div>
-        <div v-if="newQ.type === 'MultipleChoice'">
-          <label class="label">Opsi (pilih jawaban benar)</label>
+        <div v-if="newQ.type === 'TrueFalse'" class="text-sm text-gray-500 italic">
+          Jawaban: pilih Benar atau Salah di bawah sebagai jawaban yang benar.
+        </div>
+        <div v-if="newQ.type !== 'Essay'">
+          <label class="label">{{ newQ.type === 'TrueFalse' ? 'Pilih jawaban benar' : 'Opsi (pilih jawaban benar)' }}</label>
           <div v-for="(o, i) in newQ.options" :key="i" class="flex gap-2 mb-2">
             <input type="radio" :checked="o.isCorrect"
               @change="newQ.options.forEach((x, j) => x.isCorrect = j === i)" class="mt-2.5" />
             <input v-model="o.text" class="input" :placeholder="`Opsi ${i + 1}`" />
             <button type="button" @click="newQ.options.splice(i, 1)" class="text-red-400 hover:text-red-600">✕</button>
           </div>
-          <button type="button" @click="newQ.options.push({ text: '', isCorrect: false })" class="btn-outline btn-sm">+ Opsi</button>
+          <button v-if="newQ.type === 'MultipleChoice'" type="button" @click="newQ.options.push({ text: '', isCorrect: false })" class="btn-outline btn-sm">+ Opsi</button>
         </div>
         <div class="flex gap-2">
           <button @click="saveToBank" :disabled="saving" class="btn-primary btn-sm">
@@ -106,6 +109,16 @@ const newQ = reactive({
   text: '', type: 'MultipleChoice', category: '', points: 1,
   options: [{ text: '', isCorrect: true }, { text: '', isCorrect: false }]
 })
+
+function onTypeChange() {
+  if (newQ.type === 'TrueFalse') {
+    newQ.options = [{ text: 'Benar', isCorrect: true }, { text: 'Salah', isCorrect: false }]
+  } else if (newQ.type === 'MultipleChoice') {
+    newQ.options = [{ text: '', isCorrect: true }, { text: '', isCorrect: false }]
+  } else {
+    newQ.options = [] // Essay — tidak perlu opsi
+  }
+}
 
 async function load() {
   loadError.value = ''
