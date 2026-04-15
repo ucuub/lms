@@ -313,8 +313,8 @@ watch(showBankModal, async (val) => {
   if (val && bankQuestions.value.length === 0) {
     loadingBank.value = true
     try {
-      const { data } = await quizzesApi.getBank()
-      bankQuestions.value = data
+      const { data } = await quizzesApi.getBank({ pageSize: 200 })
+      bankQuestions.value = data.items ?? []
     } finally {
       loadingBank.value = false
     }
