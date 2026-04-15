@@ -348,7 +348,6 @@ app.MapControllers();
                 "DisplayOrder"     INTEGER NOT NULL DEFAULT 0
             )
             """);
-    }
 
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS "QuestionSets" (
