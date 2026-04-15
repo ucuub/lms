@@ -67,6 +67,14 @@ const routes = [
       { path: 'practice/attempt/:attemptId',        name: 'PracticeTake',   component: () => import('@/views/practice/PracticeTakeView.vue') },
       { path: 'practice/result/:attemptId',         name: 'PracticeResult', component: () => import('@/views/practice/PracticeResultView.vue') },
 
+      // Question Set (Buat Soal)
+      { path: 'question-sets',                              name: 'QuestionSetList',    component: () => import('@/views/questionsets/QuestionSetListView.vue') },
+      { path: 'question-sets/create',                       name: 'QuestionSetCreate',  component: () => import('@/views/questionsets/QuestionSetManageView.vue'), meta: { role: 'teacher' } },
+      { path: 'question-sets/:id/manage',                   name: 'QuestionSetManage',  component: () => import('@/views/questionsets/QuestionSetManageView.vue'), meta: { role: 'teacher' } },
+      { path: 'question-sets/:id/take',                     name: 'QuestionSetTake',    component: () => import('@/views/questionsets/QuestionSetTakeView.vue') },
+      { path: 'question-sets/:id/grading',                  name: 'QuestionSetGrading', component: () => import('@/views/questionsets/QuestionSetGradingView.vue'), meta: { role: 'teacher' } },
+      { path: 'question-set-attempts/:attemptId/result',    name: 'QuestionSetResult',  component: () => import('@/views/questionsets/QuestionSetResultView.vue') },
+
       // Standalone Exam
       { path: 'exams',                             name: 'ExamList',    component: () => import('@/views/exams/ExamListView.vue') },
       { path: 'exams/create',                      name: 'ExamCreate',  component: () => import('@/views/exams/ExamManageView.vue'), meta: { role: 'admin' } },

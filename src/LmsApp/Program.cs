@@ -249,6 +249,8 @@ app.MapControllers();
                 _ = db.CourseModules.Any(m => m.SectionId == null);
                 // Deteksi tabel Exam baru
                 _ = db.Exams.Any();
+                // Deteksi tabel QuestionSet baru
+                _ = db.QuestionSets.Any();
             }
             catch
             {
@@ -344,6 +346,75 @@ app.MapControllers();
                 "SelectedOptionId" INTEGER
                     REFERENCES "QuestionBankOptions"("Id") ON DELETE SET NULL,
                 "DisplayOrder"     INTEGER NOT NULL DEFAULT 0
+            )
+            """);
+    }
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "QuestionSets" (
+                "Id"               SERIAL PRIMARY KEY,
+                "Title"            TEXT NOT NULL DEFAULT '',
+                "Description"      TEXT,
+                "TimeLimitMinutes" INTEGER,
+                "MaxAttempts"      INTEGER NOT NULL DEFAULT 1,
+                "PassScore"        INTEGER NOT NULL DEFAULT 60,
+                "IsPublished"      BOOLEAN NOT NULL DEFAULT FALSE,
+                "CreatedBy"        TEXT NOT NULL DEFAULT '',
+                "CreatedByName"    TEXT NOT NULL DEFAULT '',
+                "CreatedAt"        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "QuestionSetQuestions" (
+                "Id"             SERIAL PRIMARY KEY,
+                "QuestionSetId"  INTEGER NOT NULL
+                    REFERENCES "QuestionSets"("Id") ON DELETE CASCADE,
+                "BankQuestionId" INTEGER,
+                "Text"           TEXT NOT NULL DEFAULT '',
+                "Type"           INTEGER NOT NULL DEFAULT 0,
+                "Points"         INTEGER NOT NULL DEFAULT 10,
+                "Order"          INTEGER NOT NULL DEFAULT 0
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "QuestionSetOptions" (
+                "Id"         SERIAL PRIMARY KEY,
+                "QuestionId" INTEGER NOT NULL
+                    REFERENCES "QuestionSetQuestions"("Id") ON DELETE CASCADE,
+                "Text"       TEXT NOT NULL DEFAULT '',
+                "IsCorrect"  BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "QuestionSetAttempts" (
+                "Id"             SERIAL PRIMARY KEY,
+                "QuestionSetId"  INTEGER NOT NULL
+                    REFERENCES "QuestionSets"("Id") ON DELETE CASCADE,
+                "UserId"         TEXT NOT NULL DEFAULT '',
+                "UserName"       TEXT NOT NULL DEFAULT '',
+                "StartedAt"      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "SubmittedAt"    TIMESTAMPTZ,
+                "Score"          INTEGER NOT NULL DEFAULT 0,
+                "MaxScore"       INTEGER NOT NULL DEFAULT 0,
+                "IsPassed"       BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "QuestionSetAnswers" (
+                "Id"               SERIAL PRIMARY KEY,
+                "AttemptId"        INTEGER NOT NULL
+                    REFERENCES "QuestionSetAttempts"("Id") ON DELETE CASCADE,
+                "QuestionId"       INTEGER NOT NULL
+                    REFERENCES "QuestionSetQuestions"("Id") ON DELETE RESTRICT,
+                "SelectedOptionId" INTEGER,
+                "EssayAnswer"      TEXT,
+                "IsCorrect"        BOOLEAN,
+                "EarnedPoints"     INTEGER,
+                "Feedback"         TEXT
             )
             """);
     }
