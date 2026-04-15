@@ -74,7 +74,10 @@
         </div>
         <button @click="del(q.id)" class="text-red-400 hover:text-red-600 text-sm shrink-0">Hapus</button>
       </div>
-      <div v-if="items.length === 0" class="card p-12 text-center text-gray-400">
+      <div v-if="loadError" class="card p-6 text-center text-red-500 text-sm">
+        {{ loadError }}
+      </div>
+      <div v-else-if="items.length === 0" class="card p-12 text-center text-gray-400">
         Bank soal kosong. Tambahkan soal pertama Anda!
       </div>
     </div>
@@ -97,6 +100,7 @@ const totalPages = ref(1)
 const showForm = ref(false)
 const saving = ref(false)
 const catFilter = ref('')
+const loadError = ref('')
 
 const newQ = reactive({
   text: '', type: 'MultipleChoice', category: '', points: 1,
@@ -104,14 +108,20 @@ const newQ = reactive({
 })
 
 async function load() {
-  const params = { page: page.value }
-  if (catFilter.value) params.category = catFilter.value
-  const { data } = await quizzesApi.getBank(params)
-  items.value = data.items
-  totalPages.value = data.totalPages
+  loadError.value = ''
+  try {
+    const params = { page: page.value }
+    if (catFilter.value) params.category = catFilter.value
+    const { data } = await quizzesApi.getBank(params)
+    items.value = data.items ?? []
+    totalPages.value = data.totalPages ?? 1
+  } catch (e) {
+    loadError.value = e?.response?.data?.message ?? 'Gagal memuat bank soal.'
+  }
 }
 
 async function saveToBank() {
+  if (!newQ.text.trim()) return alert('Pertanyaan wajib diisi.')
   saving.value = true
   try {
     await quizzesApi.addToBank({ ...newQ })
@@ -119,7 +129,11 @@ async function saveToBank() {
     newQ.text = ''
     newQ.category = ''
     newQ.options = [{ text: '', isCorrect: true }, { text: '', isCorrect: false }]
-    load()
+    await load()
+  } catch (e) {
+    alert(e?.response?.data?.message ?? e?.response?.data?.errors
+      ? JSON.stringify(e.response.data.errors)
+      : 'Gagal menyimpan soal. Pastikan semua field terisi.')
   } finally {
     saving.value = false
   }
@@ -127,8 +141,12 @@ async function saveToBank() {
 
 async function del(id) {
   if (!confirm('Hapus soal dari bank?')) return
-  await quizzesApi.deleteFromBank(id)
-  load()
+  try {
+    await quizzesApi.deleteFromBank(id)
+    await load()
+  } catch (e) {
+    alert(e?.response?.data?.message ?? 'Gagal menghapus soal.')
+  }
 }
 
 onMounted(() => {
