@@ -534,6 +534,13 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
         if (item == null) return NotFound();
         if (UserRole != "admin" && item.OwnerId != UserId) return Forbid();
 
+        // Remove PracticeAttemptAnswers that reference this bank question (FK is RESTRICT/non-nullable)
+        var practiceAnswers = await db.PracticeAttemptAnswers
+            .Where(a => a.BankQuestionId == id)
+            .ToListAsync();
+        if (practiceAnswers.Count > 0)
+            db.PracticeAttemptAnswers.RemoveRange(practiceAnswers);
+
         db.QuestionBank.Remove(item);
         await db.SaveChangesAsync();
         return NoContent();
