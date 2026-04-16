@@ -236,13 +236,61 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
         if (assignment == null)
             return BadRequest(new { message = "User belum di-assign ke exam ini." });
 
-        var (token, expiresAt) = tokenService.GenerateToken(req.UserId, id, req.ExpiryMinutes);
+        var (token, expiresAt, jti) = tokenService.GenerateToken(req.UserId, id, req.ExpiryMinutes);
 
         var config   = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
         var baseUrl  = (config["MandatoryExam:FrontendBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var deepLink = $"{baseUrl}/exam/start?token={Uri.EscapeDataString(token)}";
 
-        return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt));
+        // Simpan session untuk audit trail + kemampuan revoke
+        var session = new MandatoryExamSession
+        {
+            ExamId      = id,
+            UserId      = req.UserId,
+            TokenJti    = jti,
+            GeneratedBy = UserId,
+            ExpiresAt   = expiresAt,
+        };
+        db.MandatoryExamSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt, session.Id));
+    }
+
+    // ── Sessions ──────────────────────────────────────────────────────────────
+
+    // GET /api/mandatory-exams/{id}/sessions
+    [HttpGet("{id:int}/sessions")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<ActionResult<IEnumerable<MandatoryExamSessionResponse>>> GetSessions(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var sessions = await db.MandatoryExamSessions
+            .Where(s => s.ExamId == id)
+            .OrderByDescending(s => s.GeneratedAt)
+            .ToListAsync();
+
+        return Ok(sessions.Select(ToSessionRes));
+    }
+
+    // POST /api/mandatory-exams/sessions/{sessionId}/revoke
+    [HttpPost("sessions/{sessionId:int}/revoke")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> RevokeSession(int sessionId)
+    {
+        var session = await db.MandatoryExamSessions
+            .Include(s => s.Exam)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session == null) return NotFound();
+        if (!IsAdmin && session.Exam.CreatedBy != UserId) return Forbid();
+        if (session.IsRevoked) return BadRequest(new { message = "Session sudah di-revoke." });
+
+        session.IsRevoked = true;
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Session berhasil di-revoke." });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -259,6 +307,11 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
 
     private static MandatoryAssignmentResponse ToAssignmentRes(MandatoryExamAssignment a, int attemptCount) => new(
         a.Id, a.UserId, a.UserName, a.Status.ToString(), a.AssignedAt, a.CompletedAt, attemptCount);
+
+    private static MandatoryExamSessionResponse ToSessionRes(MandatoryExamSession s) => new(
+        s.Id, s.ExamId, s.UserId, s.GeneratedBy,
+        s.GeneratedAt, s.ExpiresAt, s.UsedAt,
+        s.IsRevoked, DateTime.UtcNow > s.ExpiresAt);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -279,16 +332,31 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
         if (string.IsNullOrWhiteSpace(token))
             return BadRequest(new { message = "Token diperlukan." });
 
-        (string userId, int examId) parsed;
+        (string userId, int examId, string jti) parsed;
         try   { parsed = tokenService.ValidateToken(token); }
         catch (SecurityTokenExpiredException)
               { return Unauthorized(new { message = "Token sudah expired." }); }
         catch (Exception ex)
               { return Unauthorized(new { message = $"Token tidak valid: {ex.Message}" }); }
 
-        var (userId, examId) = parsed;
+        var (userId, examId, jti) = parsed;
 
-        // 1. Validasi assignment
+        // 1. Cek session — revoke check
+        var examSession = await db.MandatoryExamSessions
+            .FirstOrDefaultAsync(s => s.TokenJti == jti);
+        if (examSession == null)
+            return Unauthorized(new { message = "Token tidak dikenal." });
+        if (examSession.IsRevoked)
+            return Unauthorized(new { message = "Link sudah di-nonaktifkan." });
+
+        // Set UsedAt jika pertama kali dipakai
+        if (examSession.UsedAt == null)
+        {
+            examSession.UsedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        // 2. Validasi assignment
         var assignment = await db.MandatoryExamAssignments
             .Include(a => a.Attempts)
             .FirstOrDefaultAsync(a => a.ExamId == examId && a.UserId == userId);
@@ -346,7 +414,7 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
         SubmitMandatoryExamRequest req,
         [FromHeader(Name = "X-Exam-Token")] string? examToken)
     {
-        var (userId, examId) = ValidateSessionToken(examToken, out var err);
+        var (userId, examId, _) = ValidateSessionToken(examToken, out var err);
         if (err != null) return err;
 
         var attempt = await db.MandatoryExamAttempts
@@ -431,7 +499,7 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
         int id,
         [FromHeader(Name = "X-Exam-Token")] string? examToken)
     {
-        var (userId, _) = ValidateSessionToken(examToken, out var err);
+        var (userId, _, _jti) = ValidateSessionToken(examToken, out var err);
         if (err != null) return err;
 
         var attempt = await db.MandatoryExamAttempts
@@ -450,13 +518,13 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private (string userId, int examId) ValidateSessionToken(string? token, out ActionResult? error)
+    private (string userId, int examId, string jti) ValidateSessionToken(string? token, out ActionResult? error)
     {
         error = null;
         if (string.IsNullOrWhiteSpace(token))
         {
             error = Unauthorized(new { message = "X-Exam-Token header diperlukan." });
-            return (string.Empty, 0);
+            return (string.Empty, 0, string.Empty);
         }
         try
         {
@@ -465,12 +533,12 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
         catch (SecurityTokenExpiredException)
         {
             error = Unauthorized(new { message = "Token sudah expired." });
-            return (string.Empty, 0);
+            return (string.Empty, 0, string.Empty);
         }
         catch
         {
             error = Unauthorized(new { message = "Token tidak valid." });
-            return (string.Empty, 0);
+            return (string.Empty, 0, string.Empty);
         }
     }
 

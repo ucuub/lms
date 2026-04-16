@@ -114,8 +114,8 @@
         <div class="flex-1 overflow-y-auto">
           <!-- Tabs -->
           <div class="flex border-b">
-            <button v-for="tab in ['Soal', 'Peserta', 'Generate Link']" :key="tab"
-              @click="activeTab = tab"
+            <button v-for="tab in ['Soal', 'Peserta', 'Generate Link', 'Riwayat Link']" :key="tab"
+              @click="activeTab = tab; if (tab === 'Riwayat Link') loadSessions()"
               :class="activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'"
               class="px-5 py-3 text-sm font-medium transition-colors">
               {{ tab }}
@@ -228,6 +228,41 @@
             </table>
           </div>
 
+          <!-- Tab: Riwayat Link -->
+          <div v-if="activeTab === 'Riwayat Link'" class="p-5">
+            <div class="flex justify-between items-center mb-4">
+              <p class="text-sm text-gray-600">Semua link yang pernah digenerate untuk ujian ini.</p>
+              <button @click="loadSessions" class="text-xs text-blue-600 hover:underline">Refresh</button>
+            </div>
+            <div v-if="sessionsLoading" class="text-gray-400 text-sm">Memuat...</div>
+            <div v-else-if="sessions.length === 0" class="text-gray-400 text-sm">Belum ada link yang digenerate.</div>
+            <div v-else class="space-y-2">
+              <div v-for="s in sessions" :key="s.id"
+                class="p-3 border rounded-lg text-xs flex items-start justify-between gap-3"
+                :class="s.isRevoked ? 'bg-red-50 border-red-200' : s.isExpired ? 'bg-gray-50 border-gray-200' : 'border-green-200 bg-green-50'">
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <span :class="s.isRevoked ? 'bg-red-100 text-red-700' : s.isExpired ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-green-700'"
+                      class="px-1.5 py-0.5 rounded font-medium">
+                      {{ s.isRevoked ? 'Dicabut' : s.isExpired ? 'Expired' : 'Aktif' }}
+                    </span>
+                    <span class="text-gray-600">User: <b>{{ s.userId }}</b></span>
+                  </div>
+                  <p class="text-gray-400">Generate: {{ formatDate(s.generatedAt) }}</p>
+                  <p class="text-gray-400">Berlaku sampai: {{ formatDate(s.expiresAt) }}</p>
+                  <p class="text-gray-400">
+                    Pertama dipakai: {{ s.usedAt ? formatDate(s.usedAt) : 'Belum pernah dipakai' }}
+                  </p>
+                </div>
+                <button v-if="!s.isRevoked && !s.isExpired"
+                  @click="revokeSession(s)"
+                  class="text-red-500 hover:text-red-700 shrink-0 border border-red-200 px-2 py-1 rounded hover:bg-red-50">
+                  Cabut
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Tab: Generate Link -->
           <div v-if="activeTab === 'Generate Link'" class="p-5">
             <p class="text-sm text-gray-600 mb-4">
@@ -303,6 +338,10 @@ const linkExpiry      = ref(60)
 const generatingLink  = ref(false)
 const generatedLink   = ref(null)
 
+// Sessions
+const sessions        = ref([])
+const sessionsLoading = ref(false)
+
 onMounted(load)
 
 async function load() {
@@ -351,16 +390,38 @@ async function deleteExam(exam) {
 }
 
 async function openDetail(exam) {
-  selected.value    = exam
-  activeTab.value   = 'Soal'
+  selected.value      = exam
+  activeTab.value     = 'Soal'
   detailLoading.value = true
-  detail.value      = null
+  detail.value        = null
   generatedLink.value = null
+  sessions.value      = []
   try {
     const { data } = await mandatoryExamApi.getById(exam.id)
     detail.value = data
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function loadSessions() {
+  if (!selected.value) return
+  sessionsLoading.value = true
+  try {
+    const { data } = await mandatoryExamApi.getSessions(selected.value.id)
+    sessions.value = data
+  } finally {
+    sessionsLoading.value = false
+  }
+}
+
+async function revokeSession(s) {
+  if (!confirm('Cabut link ini? User tidak akan bisa menggunakan link tersebut lagi.')) return
+  try {
+    await mandatoryExamApi.revokeSession(s.id)
+    s.isRevoked = true
+  } catch (e) {
+    alert(e?.response?.data?.message ?? 'Gagal mencabut link.')
   }
 }
 

@@ -86,3 +86,22 @@ public class MandatoryExamAnswer
     public MandatoryExamAttempt Attempt { get; set; } = null!;
     public MandatoryExamQuestion Question { get; set; } = null!;
 }
+
+/// <summary>
+/// Tracks every deep-link token that was generated.
+/// Allows revocation and audit trail without storing the full token string.
+/// </summary>
+public class MandatoryExamSession
+{
+    public int Id { get; set; }
+    public int ExamId { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string TokenJti { get; set; } = string.Empty; // JWT jti claim — unique per token
+    public string GeneratedBy { get; set; } = string.Empty;
+    public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }   // null = belum pernah dipakai
+    public bool IsRevoked { get; set; } = false;
+
+    public MandatoryExam Exam { get; set; } = null!;
+}

@@ -84,7 +84,19 @@ public record MandatoryAssignmentResponse(
     int AttemptCount
 );
 
-public record GenerateMandatoryLinkResponse(string Token, string DeepLink, DateTime ExpiresAt);
+public record GenerateMandatoryLinkResponse(string Token, string DeepLink, DateTime ExpiresAt, int SessionId);
+
+public record MandatoryExamSessionResponse(
+    int Id,
+    int ExamId,
+    string UserId,
+    string GeneratedBy,
+    DateTime GeneratedAt,
+    DateTime ExpiresAt,
+    DateTime? UsedAt,
+    bool IsRevoked,
+    bool IsExpired
+);
 
 // ── Deep Link Session Responses ───────────────────────────────────────────────
 

@@ -17,6 +17,8 @@ export const mandatoryExamApi = {
   getAssignments:  (id)            => api.get(`/mandatory-exams/${id}/assignments`),
 
   generateLink:    (id, data)      => api.post(`/mandatory-exams/${id}/generate-link`, data),
+  getSessions:     (id)            => api.get(`/mandatory-exams/${id}/sessions`),
+  revokeSession:   (sessionId)     => api.post(`/mandatory-exams/sessions/${sessionId}/revoke`),
 }
 
 // ── Session (authenticated by X-Exam-Token — no Keycloak needed) ─────────────

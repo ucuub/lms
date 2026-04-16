@@ -499,6 +499,21 @@ app.MapControllers();
                 "Feedback"         TEXT
             )
             """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamSessions" (
+                "Id"          SERIAL PRIMARY KEY,
+                "ExamId"      INTEGER NOT NULL
+                    REFERENCES "MandatoryExams"("Id") ON DELETE CASCADE,
+                "UserId"      TEXT NOT NULL DEFAULT '',
+                "TokenJti"    TEXT NOT NULL UNIQUE,
+                "GeneratedBy" TEXT NOT NULL DEFAULT '',
+                "GeneratedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "ExpiresAt"   TIMESTAMPTZ NOT NULL,
+                "UsedAt"      TIMESTAMPTZ,
+                "IsRevoked"   BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            """);
     }
 
     await DataSeeder.SeedAsync(db);

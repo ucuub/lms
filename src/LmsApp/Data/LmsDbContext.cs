@@ -89,6 +89,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<MandatoryExamAssignment> MandatoryExamAssignments => Set<MandatoryExamAssignment>();
     public DbSet<MandatoryExamAttempt> MandatoryExamAttempts => Set<MandatoryExamAttempt>();
     public DbSet<MandatoryExamAnswer> MandatoryExamAnswers => Set<MandatoryExamAnswer>();
+    public DbSet<MandatoryExamSession> MandatoryExamSessions => Set<MandatoryExamSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -595,6 +596,16 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(ans => ans.QuestionId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MandatoryExamSession>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => s.TokenJti).IsUnique();
+            e.HasOne(s => s.Exam)
+                .WithMany()
+                .HasForeignKey(s => s.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

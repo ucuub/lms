@@ -16,42 +16,43 @@ public class MandatoryExamTokenService(IConfiguration config)
     private string SigningKey => config["MandatoryExam:SigningKey"]
         ?? throw new InvalidOperationException("MandatoryExam:SigningKey is not configured.");
 
-    /// <summary>Returns (token, expiresAt)</summary>
-    public (string Token, DateTime ExpiresAt) GenerateToken(string userId, int examId, int expiryMinutes = 60)
+    /// <summary>Returns (Token, ExpiresAt, Jti)</summary>
+    public (string Token, DateTime ExpiresAt, string Jti) GenerateToken(string userId, int examId, int expiryMinutes = 60)
     {
         var key   = BuildKey();
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var exp   = DateTime.UtcNow.AddMinutes(Math.Clamp(expiryMinutes, 10, 1440));
+        var jti   = Guid.NewGuid().ToString();
 
         var jwt = new JwtSecurityToken(
             issuer: Issuer,
             claims: [
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim("examId", examId.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Jti, jti),
             ],
             expires: exp,
             signingCredentials: creds
         );
 
-        return (new JwtSecurityTokenHandler().WriteToken(jwt), exp);
+        return (new JwtSecurityTokenHandler().WriteToken(jwt), exp, jti);
     }
 
     /// <summary>
-    /// Validates the token and returns (userId, examId).
+    /// Validates the token and returns (UserId, ExamId, Jti).
     /// Throws SecurityTokenException / SecurityTokenExpiredException on failure.
     /// </summary>
-    public (string UserId, int ExamId) ValidateToken(string token)
+    public (string UserId, int ExamId, string Jti) ValidateToken(string token)
     {
-        var handler    = new JwtSecurityTokenHandler();
-        var principal  = handler.ValidateToken(token, new TokenValidationParameters
+        var handler   = new JwtSecurityTokenHandler();
+        var principal = handler.ValidateToken(token, new TokenValidationParameters
         {
-            ValidateIssuer           = true,
-            ValidIssuer              = Issuer,
-            ValidateAudience         = false,
-            ValidateLifetime         = true,
-            ClockSkew                = TimeSpan.FromSeconds(30),
-            IssuerSigningKey         = BuildKey(),
+            ValidateIssuer   = true,
+            ValidIssuer      = Issuer,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew        = TimeSpan.FromSeconds(30),
+            IssuerSigningKey = BuildKey(),
         }, out _);
 
         var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -64,7 +65,10 @@ public class MandatoryExamTokenService(IConfiguration config)
         if (!int.TryParse(examIdStr, out var examId))
             throw new SecurityTokenException("examId tidak valid.");
 
-        return (userId, examId);
+        var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value
+               ?? throw new SecurityTokenException("Token tidak mengandung jti claim.");
+
+        return (userId, examId, jti);
     }
 
     private SymmetricSecurityKey BuildKey()
