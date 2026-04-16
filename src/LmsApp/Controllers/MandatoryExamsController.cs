@@ -238,7 +238,8 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
 
         var (token, expiresAt) = tokenService.GenerateToken(req.UserId, id, req.ExpiryMinutes);
 
-        var baseUrl  = $"{Request.Scheme}://{Request.Host}";
+        var config   = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var baseUrl  = (config["MandatoryExam:FrontendBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var deepLink = $"{baseUrl}/exam/start?token={Uri.EscapeDataString(token)}";
 
         return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt));
