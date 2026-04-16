@@ -116,6 +116,14 @@ public class QuestionSetsController(LmsDbContext db) : ControllerBase
         if (qs == null) return NotFound();
         if (!IsAdmin && qs.CreatedBy != UserId) return Forbid();
 
+        // QuestionSetAnswers.QuestionId has RESTRICT FK → must delete answers before questions
+        var answers = await db.QuestionSetAnswers
+            .Where(a => a.Attempt.QuestionSetId == id)
+            .ToListAsync();
+        if (answers.Count > 0)
+            db.QuestionSetAnswers.RemoveRange(answers);
+        await db.SaveChangesAsync();
+
         db.QuestionSets.Remove(qs);
         await db.SaveChangesAsync();
         return NoContent();
