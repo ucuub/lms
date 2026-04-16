@@ -74,7 +74,18 @@ const routes = [
       { path: 'ujian/:id/take',                         name: 'UjianTake',    component: () => import('@/views/questionsets/QuestionSetTakeView.vue') },
       { path: 'ujian/:id/grading',                      name: 'UjianGrading', component: () => import('@/views/questionsets/QuestionSetGradingView.vue'), meta: { role: 'teacher' } },
       { path: 'ujian-attempts/:attemptId/result',       name: 'UjianResult',  component: () => import('@/views/questionsets/QuestionSetResultView.vue') },
+
+      // Ujian Wajib (Mandatory Exam — deep link system)
+      { path: 'ujian-wajib', name: 'MandatoryExamList', component: () => import('@/views/exam/MandatoryExamManageView.vue'), meta: { role: 'teacher' } },
     ]
+  },
+
+  // ── Mandatory Exam deep link — public, no Keycloak required ──────────────
+  {
+    path: '/exam/start',
+    name: 'MandatoryExamStart',
+    component: () => import('@/views/exam/MandatoryExamView.vue'),
+    meta: { public: true }
   },
 
   { path: '/:pathMatch(.*)*', redirect: '/' }

@@ -82,6 +82,14 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<QuestionSetAttempt> QuestionSetAttempts => Set<QuestionSetAttempt>();
     public DbSet<QuestionSetAnswer> QuestionSetAnswers => Set<QuestionSetAnswer>();
 
+    // Mandatory Exam (deep-link, per-user assignment)
+    public DbSet<MandatoryExam> MandatoryExams => Set<MandatoryExam>();
+    public DbSet<MandatoryExamQuestion> MandatoryExamQuestions => Set<MandatoryExamQuestion>();
+    public DbSet<MandatoryExamOption> MandatoryExamOptions => Set<MandatoryExamOption>();
+    public DbSet<MandatoryExamAssignment> MandatoryExamAssignments => Set<MandatoryExamAssignment>();
+    public DbSet<MandatoryExamAttempt> MandatoryExamAttempts => Set<MandatoryExamAttempt>();
+    public DbSet<MandatoryExamAnswer> MandatoryExamAnswers => Set<MandatoryExamAnswer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -527,6 +535,60 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
         });
 
         modelBuilder.Entity<QuestionSetAnswer>(e =>
+        {
+            e.HasKey(ans => ans.Id);
+            e.HasOne(ans => ans.Question)
+                .WithMany()
+                .HasForeignKey(ans => ans.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Mandatory Exam ────────────────────────────────────────────────────
+
+        modelBuilder.Entity<MandatoryExam>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasMany(x => x.Questions)
+                .WithOne(q => q.Exam)
+                .HasForeignKey(q => q.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Assignments)
+                .WithOne(a => a.Exam)
+                .HasForeignKey(a => a.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamQuestion>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.HasMany(q => q.Options)
+                .WithOne(o => o.Question)
+                .HasForeignKey(o => o.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamOption>(e => e.HasKey(o => o.Id));
+
+        modelBuilder.Entity<MandatoryExamAssignment>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => new { a.ExamId, a.UserId }).IsUnique();
+            e.HasMany(a => a.Attempts)
+                .WithOne(t => t.Assignment)
+                .HasForeignKey(t => t.AssignmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamAttempt>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.HasMany(t => t.Answers)
+                .WithOne(ans => ans.Attempt)
+                .HasForeignKey(ans => ans.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamAnswer>(e =>
         {
             e.HasKey(ans => ans.Id);
             e.HasOne(ans => ans.Question)

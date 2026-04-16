@@ -132,6 +132,7 @@ builder.Services.AddScoped<ICompletionService, CompletionService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
+builder.Services.AddSingleton<MandatoryExamTokenService>();
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -409,6 +410,88 @@ app.MapControllers();
                     REFERENCES "QuestionSetAttempts"("Id") ON DELETE CASCADE,
                 "QuestionId"       INTEGER NOT NULL
                     REFERENCES "QuestionSetQuestions"("Id") ON DELETE RESTRICT,
+                "SelectedOptionId" INTEGER,
+                "EssayAnswer"      TEXT,
+                "IsCorrect"        BOOLEAN,
+                "EarnedPoints"     INTEGER,
+                "Feedback"         TEXT
+            )
+            """);
+
+        // ── Mandatory Exam ────────────────────────────────────────────────────
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExams" (
+                "Id"               SERIAL PRIMARY KEY,
+                "Title"            TEXT NOT NULL DEFAULT '',
+                "Description"      TEXT,
+                "TimeLimitMinutes" INTEGER,
+                "MaxAttempts"      INTEGER NOT NULL DEFAULT 1,
+                "PassScore"        INTEGER NOT NULL DEFAULT 60,
+                "IsActive"         BOOLEAN NOT NULL DEFAULT TRUE,
+                "CreatedBy"        TEXT NOT NULL DEFAULT '',
+                "CreatedByName"    TEXT NOT NULL DEFAULT '',
+                "CreatedAt"        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamQuestions" (
+                "Id"      SERIAL PRIMARY KEY,
+                "ExamId"  INTEGER NOT NULL
+                    REFERENCES "MandatoryExams"("Id") ON DELETE CASCADE,
+                "Text"    TEXT NOT NULL DEFAULT '',
+                "Type"    INTEGER NOT NULL DEFAULT 0,
+                "Points"  INTEGER NOT NULL DEFAULT 10,
+                "Order"   INTEGER NOT NULL DEFAULT 0
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamOptions" (
+                "Id"         SERIAL PRIMARY KEY,
+                "QuestionId" INTEGER NOT NULL
+                    REFERENCES "MandatoryExamQuestions"("Id") ON DELETE CASCADE,
+                "Text"       TEXT NOT NULL DEFAULT '',
+                "IsCorrect"  BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamAssignments" (
+                "Id"          SERIAL PRIMARY KEY,
+                "ExamId"      INTEGER NOT NULL
+                    REFERENCES "MandatoryExams"("Id") ON DELETE CASCADE,
+                "UserId"      TEXT NOT NULL DEFAULT '',
+                "UserName"    TEXT NOT NULL DEFAULT '',
+                "Status"      INTEGER NOT NULL DEFAULT 0,
+                "AssignedAt"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "CompletedAt" TIMESTAMPTZ,
+                UNIQUE ("ExamId", "UserId")
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamAttempts" (
+                "Id"           SERIAL PRIMARY KEY,
+                "AssignmentId" INTEGER NOT NULL
+                    REFERENCES "MandatoryExamAssignments"("Id") ON DELETE CASCADE,
+                "ExamId"       INTEGER NOT NULL,
+                "UserId"       TEXT NOT NULL DEFAULT '',
+                "StartedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                "SubmittedAt"  TIMESTAMPTZ,
+                "Score"        INTEGER,
+                "MaxScore"     INTEGER,
+                "IsPassed"     BOOLEAN
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "MandatoryExamAnswers" (
+                "Id"               SERIAL PRIMARY KEY,
+                "AttemptId"        INTEGER NOT NULL
+                    REFERENCES "MandatoryExamAttempts"("Id") ON DELETE CASCADE,
+                "QuestionId"       INTEGER NOT NULL
+                    REFERENCES "MandatoryExamQuestions"("Id") ON DELETE RESTRICT,
                 "SelectedOptionId" INTEGER,
                 "EssayAnswer"      TEXT,
                 "IsCorrect"        BOOLEAN,

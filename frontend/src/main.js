@@ -71,6 +71,13 @@ function mountAccessDenied(pinia) {
     return
   }
 
+  // ── MANDATORY EXAM DEEP LINK: bypass semua auth ──────────────────────────
+  // URL: /exam/start?token=XYZ — diakses oleh user external tanpa login
+  if (window.location.pathname === '/exam/start' && urlParams.get('token')) {
+    await syncAndMountApp(pinia)
+    return
+  }
+
   if (hasBridgeSession()) {
     // ── BRIDGE FLOW B: Page refresh dalam tab yang sama ─────────────────────
     // sessionStorage punya refresh token → minta access token baru via PHP

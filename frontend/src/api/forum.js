@@ -7,6 +7,7 @@ export const forumApi = {
   reply: (courseId, threadId, data) => api.post(`/courses/${courseId}/forum/${threadId}/reply`, data),
   delete: (courseId, postId) => api.delete(`/courses/${courseId}/forum/${postId}`),
   pin: (courseId, threadId) => api.post(`/courses/${courseId}/forum/${threadId}/pin`),
+  like: (courseId, postId) => api.post(`/courses/${courseId}/forum/${postId}/like`),
 }
 
 export const notificationsApi = {
