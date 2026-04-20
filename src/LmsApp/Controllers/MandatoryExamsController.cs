@@ -16,12 +16,19 @@ namespace LmsApp.Controllers;
 [ApiController]
 [Route("api/mandatory-exams")]
 [Authorize]
-public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService tokenService) : ControllerBase
+public class MandatoryExamsController(
+    LmsDbContext db,
+    MandatoryExamTokenService tokenService,
+    IConfiguration config) : ControllerBase
 {
     private string UserId   => User.FindFirst("sub")?.Value  ?? string.Empty;
     private string UserName => User.FindFirst("name")?.Value ?? string.Empty;
     private string UserRole => User.FindFirst("role")?.Value ?? "student";
     private bool   IsAdmin  => UserRole == "admin";
+
+    private string BuildPublicLink(string? code) =>
+        code == null ? string.Empty
+        : $"{(config["MandatoryExam:FrontendBaseUrl"] ?? "").TrimEnd('/')}/exam/start?code={code}";
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +47,8 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
         return Ok(exams.Select(e => new MandatoryExamSummaryResponse(
             e.Id, e.Title, e.Description, e.TimeLimitMinutes,
             e.MaxAttempts, e.PassScore, e.IsActive,
-            e.Questions.Count, e.Assignments.Count, e.CreatedAt)));
+            e.Questions.Count, e.Assignments.Count, e.CreatedAt,
+            e.PublicAccessCode, e.PublicAccessCode == null ? null : BuildPublicLink(e.PublicAccessCode))));
     }
 
     // GET /api/mandatory-exams/{id}
@@ -77,7 +85,30 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
 
         return CreatedAtAction(nameof(GetById), new { id = exam.Id },
             new MandatoryExamSummaryResponse(exam.Id, exam.Title, exam.Description,
-                exam.TimeLimitMinutes, exam.MaxAttempts, exam.PassScore, exam.IsActive, 0, 0, exam.CreatedAt));
+                exam.TimeLimitMinutes, exam.MaxAttempts, exam.PassScore, exam.IsActive,
+                0, 0, exam.CreatedAt, null, null));
+    }
+
+    // PUT /api/mandatory-exams/{id}
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> Update(int id, UpdateMandatoryExamRequest req)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+        if (string.IsNullOrWhiteSpace(req.Title))
+            return BadRequest(new { message = "Judul tidak boleh kosong." });
+
+        exam.Title            = req.Title.Trim();
+        exam.Description      = req.Description?.Trim();
+        exam.TimeLimitMinutes = req.TimeLimitMinutes;
+        exam.MaxAttempts      = Math.Max(1, req.MaxAttempts);
+        exam.PassScore        = Math.Clamp(req.PassScore, 0, 100);
+        exam.WebhookUrl       = string.IsNullOrWhiteSpace(req.WebhookUrl) ? null : req.WebhookUrl.Trim();
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Ujian berhasil diperbarui." });
     }
 
     // PATCH /api/mandatory-exams/{id}/toggle-active
@@ -159,6 +190,69 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
         db.MandatoryExamQuestions.Remove(q);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    // PUT /api/mandatory-exams/{examId}/questions/{qId}
+    [HttpPut("{examId:int}/questions/{qId:int}")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<ActionResult<MandatoryQuestionResponse>> UpdateQuestion(
+        int examId, int qId, UpdateMandatoryQuestionRequest req)
+    {
+        var q = await db.MandatoryExamQuestions
+            .Include(x => x.Options)
+            .Include(x => x.Exam)
+            .FirstOrDefaultAsync(x => x.Id == qId && x.ExamId == examId);
+        if (q == null) return NotFound();
+        if (!IsAdmin && q.Exam.CreatedBy != UserId) return Forbid();
+        if (string.IsNullOrWhiteSpace(req.Text))
+            return BadRequest(new { message = "Teks soal tidak boleh kosong." });
+        if (req.Points < 1)
+            return BadRequest(new { message = "Poin harus minimal 1." });
+        if (q.Type == QuestionType.MultipleChoice)
+        {
+            if (req.Options.Count < 2)
+                return BadRequest(new { message = "Pilihan ganda harus memiliki minimal 2 opsi." });
+            if (!req.Options.Any(o => o.IsCorrect))
+                return BadRequest(new { message = "Harus ada minimal satu opsi yang benar." });
+        }
+
+        q.Text   = req.Text.Trim();
+        q.Points = req.Points;
+
+        if (q.Type != QuestionType.Essay)
+        {
+            db.MandatoryExamOptions.RemoveRange(q.Options);
+            q.Options = req.Options.Select(o => new MandatoryExamOption
+            {
+                Text      = o.Text,
+                IsCorrect = o.IsCorrect,
+            }).ToList();
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(ToQuestionRes(q));
+    }
+
+    // PUT /api/mandatory-exams/{examId}/questions/reorder
+    [HttpPut("{examId:int}/questions/reorder")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> ReorderQuestions(int examId, ReorderQuestionsRequest req)
+    {
+        var exam = await db.MandatoryExams.FindAsync(examId);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var questions = await db.MandatoryExamQuestions
+            .Where(q => q.ExamId == examId).ToListAsync();
+
+        foreach (var item in req.Items)
+        {
+            var q = questions.FirstOrDefault(x => x.Id == item.QuestionId);
+            if (q != null) q.Order = item.Order;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Urutan soal berhasil diperbarui." });
     }
 
     // ── Assignments ───────────────────────────────────────────────────────────
@@ -257,6 +351,224 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
         return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt, session.Id));
     }
 
+    // ── Public Access Code ────────────────────────────────────────────────────
+
+    // DELETE /api/mandatory-exams/{id}/access-code  — revoke public link
+    [HttpDelete("{id:int}/access-code")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> RevokeAccessCode(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        exam.PublicAccessCode = null;
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Link publik berhasil dicabut." });
+    }
+
+    // POST /api/mandatory-exams/{id}/generate-access-code
+    [HttpPost("{id:int}/generate-access-code")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> GenerateAccessCode(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+        if (!exam.IsActive) return BadRequest(new { message = "Aktifkan exam terlebih dahulu." });
+
+        exam.PublicAccessCode = Guid.NewGuid().ToString("N"); // 32-char hex, tanpa dash
+        await db.SaveChangesAsync();
+
+        var config   = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var baseUrl  = (config["MandatoryExam:FrontendBaseUrl"] ?? "").TrimEnd('/');
+        var publicLink = $"{baseUrl}/exam/start?code={exam.PublicAccessCode}";
+
+        return Ok(new { code = exam.PublicAccessCode, publicLink });
+    }
+
+    // ── Import from Question Bank ─────────────────────────────────────────────
+
+    // POST /api/mandatory-exams/{id}/import-questions
+    [HttpPost("{id:int}/import-questions")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> ImportQuestions(int id, ImportQuestionsRequest req)
+    {
+        if (req.QuestionBankIds == null || req.QuestionBankIds.Count == 0)
+            return BadRequest(new { message = "Pilih minimal satu soal untuk diimpor." });
+
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var bankQuestions = await db.CourseQuestionBanks
+            .Include(q => q.Options)
+            .Where(q => req.QuestionBankIds.Contains(q.Id))
+            .ToListAsync();
+
+        if (bankQuestions.Count == 0)
+            return BadRequest(new { message = "Soal tidak ditemukan di bank soal." });
+
+        var startOrder = await db.MandatoryExamQuestions.CountAsync(q => q.ExamId == id);
+
+        var newQuestions = bankQuestions.Select((bq, i) => new MandatoryExamQuestion
+        {
+            ExamId  = id,
+            Text    = bq.Text,
+            Type    = bq.Type,
+            Points  = bq.Points,
+            Order   = startOrder + i,
+            Options = bq.Options.Select(o => new MandatoryExamOption
+            {
+                Text      = o.Text,
+                IsCorrect = o.IsCorrect,
+            }).ToList(),
+        }).ToList();
+
+        db.MandatoryExamQuestions.AddRange(newQuestions);
+        await db.SaveChangesAsync();
+
+        return Ok(new { imported = newQuestions.Count, message = $"{newQuestions.Count} soal berhasil diimpor." });
+    }
+
+    // ── Attempts (admin results view) ────────────────────────────────────────
+
+    // GET /api/mandatory-exams/{id}/attempts
+    [HttpGet("{id:int}/attempts")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<ActionResult<IEnumerable<MandatoryAttemptSummaryResponse>>> GetAttempts(int id)
+    {
+        var exam = await db.MandatoryExams
+            .Include(e => e.Questions)
+            .FirstOrDefaultAsync(e => e.Id == id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var attempts = await db.MandatoryExamAttempts
+            .Include(a => a.Assignment)
+            .Include(a => a.Answers).ThenInclude(ans => ans.Question)
+            .Where(a => a.ExamId == id && a.SubmittedAt != null)
+            .OrderByDescending(a => a.SubmittedAt)
+            .ToListAsync();
+
+        var results = attempts.Select(a =>
+        {
+            var pct = (a.MaxScore ?? 0) > 0
+                ? (int)Math.Round((double)(a.Score ?? 0) / a.MaxScore!.Value * 100)
+                : 0;
+
+            var essayAnswers = a.Answers
+                .Where(ans => ans.Question.Type == QuestionType.Essay)
+                .Select(ans => new MandatoryEssayAnswerAdminResponse(
+                    ans.Id, ans.QuestionId, ans.Question.Text, ans.Question.Points,
+                    ans.EssayAnswer, ans.EarnedPoints, ans.Feedback))
+                .ToList();
+
+            return new MandatoryAttemptSummaryResponse(
+                a.Id, a.UserId, a.Assignment.UserName,
+                a.Score, a.MaxScore, pct, a.IsPassed,
+                a.StartedAt, a.SubmittedAt, essayAnswers);
+        });
+
+        return Ok(results);
+    }
+
+    // GET /api/mandatory-exams/{id}/export  — download hasil sebagai CSV
+    [HttpGet("{id:int}/export")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> ExportResults(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var attempts = await db.MandatoryExamAttempts
+            .Include(a => a.Assignment)
+            .Where(a => a.ExamId == id && a.SubmittedAt != null)
+            .OrderBy(a => a.Assignment.UserName).ThenBy(a => a.StartedAt)
+            .ToListAsync();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("No,Nama,User ID,Skor,Maks Skor,Persentase (%),Lulus,Percobaan Ke,Mulai,Selesai,Durasi (menit)");
+
+        // Group by userId untuk hitung percobaan ke-n
+        var attemptNo = new Dictionary<string, int>();
+        var no = 1;
+        foreach (var a in attempts)
+        {
+            if (!attemptNo.ContainsKey(a.UserId)) attemptNo[a.UserId] = 0;
+            attemptNo[a.UserId]++;
+
+            var pct      = (a.MaxScore ?? 0) > 0 ? Math.Round((double)(a.Score ?? 0) / a.MaxScore!.Value * 100, 1) : 0;
+            var durasi   = a.SubmittedAt.HasValue ? Math.Round((a.SubmittedAt.Value - a.StartedAt).TotalMinutes, 1) : 0;
+            var userName = $"\"{a.Assignment.UserName}\"";
+
+            sb.AppendLine(string.Join(",",
+                no++,
+                userName,
+                a.UserId,
+                a.Score ?? 0,
+                a.MaxScore ?? 0,
+                pct,
+                a.IsPassed == true ? "Ya" : "Tidak",
+                attemptNo[a.UserId],
+                a.StartedAt.ToString("yyyy-MM-dd HH:mm"),
+                a.SubmittedAt?.ToString("yyyy-MM-dd HH:mm") ?? "",
+                durasi));
+        }
+
+        var fileName = $"hasil-ujian-{exam.Title.Replace(" ", "_")}-{DateTime.UtcNow:yyyyMMdd}.csv";
+        var bytes    = System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+
+        return File(bytes, "text/csv", fileName);
+    }
+
+    // PATCH /api/mandatory-exams/attempts/{attemptId}/answers/{answerId}/grade
+    [HttpPatch("attempts/{attemptId:int}/answers/{answerId:int}/grade")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> GradeEssayAnswer(int attemptId, int answerId, GradeEssayAnswerRequest req)
+    {
+        var answer = await db.MandatoryExamAnswers
+            .Include(a => a.Attempt).ThenInclude(at => at.Assignment).ThenInclude(a => a.Exam)
+            .Include(a => a.Question)
+            .FirstOrDefaultAsync(a => a.Id == answerId && a.AttemptId == attemptId);
+
+        if (answer == null) return NotFound();
+        if (answer.Question.Type != QuestionType.Essay)
+            return BadRequest(new { message = "Hanya soal essay yang bisa dinilai manual." });
+
+        var exam = answer.Attempt.Assignment.Exam;
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var maxPts = answer.Question.Points;
+        answer.EarnedPoints = Math.Clamp(req.EarnedPoints, 0, maxPts);
+        answer.Feedback     = req.Feedback;
+        answer.IsCorrect    = answer.EarnedPoints == maxPts;
+
+        // Recalculate attempt score
+        var attempt = answer.Attempt;
+        var allAnswers = await db.MandatoryExamAnswers
+            .Where(a => a.AttemptId == attempt.Id).ToListAsync();
+        attempt.Score = allAnswers.Sum(a => a.EarnedPoints ?? 0);
+
+        var pct = (attempt.MaxScore ?? 0) > 0
+            ? (int)Math.Round((double)attempt.Score.Value / attempt.MaxScore!.Value * 100)
+            : 0;
+        attempt.IsPassed = pct >= exam.PassScore;
+
+        // Update assignment status if now passed
+        if (attempt.IsPassed == true)
+        {
+            var assignment = attempt.Assignment;
+            assignment.Status      = MandatoryExamAssignmentStatus.Done;
+            assignment.CompletedAt ??= DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new { score = attempt.Score, percentage = pct, isPassed = attempt.IsPassed });
+    }
+
     // ── Sessions ──────────────────────────────────────────────────────────────
 
     // GET /api/mandatory-exams/{id}/sessions
@@ -321,8 +633,114 @@ public class MandatoryExamsController(LmsDbContext db, MandatoryExamTokenService
 [ApiController]
 [Route("api")]
 [AllowAnonymous]
-public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenService tokenService) : ControllerBase
+public class MandatoryExamSessionController(
+    LmsDbContext db,
+    MandatoryExamTokenService tokenService,
+    IHttpClientFactory httpClientFactory) : ControllerBase
 {
+    // ── Access by Public Code → start or resume attempt ──────────────────────
+    //
+    // DWI Mobile membuka URL: /exam/start?code=XXX&userId=YYY&userName=ZZZ
+    // Frontend panggil endpoint ini untuk mendapatkan exam token + soal.
+
+    // GET /api/mandatory-exams/access?code=X&userId=Y&userName=Z
+    [HttpGet("mandatory-exams/access")]
+    public async Task<ActionResult<PublicAccessExamResponse>> AccessByCode(
+        [FromQuery] string code,
+        [FromQuery] string userId,
+        [FromQuery] string? userName)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest(new { message = "Parameter 'code' diperlukan." });
+        if (string.IsNullOrWhiteSpace(userId))
+            return BadRequest(new { message = "Parameter 'userId' diperlukan." });
+
+        // 1. Cari exam berdasarkan public access code
+        var exam = await db.MandatoryExams
+            .Include(e => e.Questions).ThenInclude(q => q.Options)
+            .FirstOrDefaultAsync(e => e.PublicAccessCode == code);
+
+        if (exam == null)
+            return NotFound(new { message = "Link ujian tidak valid." });
+        if (!exam.IsActive)
+            return BadRequest(new { message = "Ujian ini sedang tidak aktif.", code = "EXAM_INACTIVE" });
+
+        // 2. Auto-create assignment jika belum ada
+        var assignment = await db.MandatoryExamAssignments
+            .Include(a => a.Attempts)
+            .FirstOrDefaultAsync(a => a.ExamId == exam.Id && a.UserId == userId);
+
+        if (assignment == null)
+        {
+            assignment = new MandatoryExamAssignment
+            {
+                ExamId   = exam.Id,
+                UserId   = userId,
+                UserName = userName ?? userId,
+            };
+            db.MandatoryExamAssignments.Add(assignment);
+            await db.SaveChangesAsync();
+
+            assignment = await db.MandatoryExamAssignments
+                .Include(a => a.Attempts)
+                .FirstAsync(a => a.Id == assignment.Id);
+        }
+
+        // 3. Cek attempt limit
+        var submittedCount = assignment.Attempts.Count(a => a.SubmittedAt != null);
+        if (submittedCount >= exam.MaxAttempts)
+            return BadRequest(new { message = "Percobaan sudah habis.", code = "ATTEMPTS_EXHAUSTED" });
+
+        // 4. Resume attempt aktif atau buat baru
+        var activeAttempt = assignment.Attempts.FirstOrDefault(a => a.SubmittedAt == null);
+        bool isResume = activeAttempt != null;
+
+        if (!isResume)
+        {
+            activeAttempt = new MandatoryExamAttempt
+            {
+                AssignmentId = assignment.Id,
+                ExamId       = exam.Id,
+                UserId       = userId,
+                StartedAt    = DateTime.UtcNow,
+            };
+            db.MandatoryExamAttempts.Add(activeAttempt);
+            assignment.Status = MandatoryExamAssignmentStatus.InProgress;
+            await db.SaveChangesAsync();
+        }
+
+        // 5. Generate exam token (JWT) untuk submit — berlaku 24 jam atau 2x time limit
+        var tokenMinutes = exam.TimeLimitMinutes.HasValue
+            ? exam.TimeLimitMinutes.Value + 30  // sedikit buffer
+            : 1440;                              // default 24 jam
+        var (token, _, jti) = tokenService.GenerateToken(userId, exam.Id, tokenMinutes);
+
+        // 6. Simpan session
+        var session = new MandatoryExamSession
+        {
+            ExamId      = exam.Id,
+            UserId      = userId,
+            TokenJti    = jti,
+            GeneratedBy = "public-link",
+            ExpiresAt   = DateTime.UtcNow.AddMinutes(tokenMinutes),
+            UsedAt      = DateTime.UtcNow,
+        };
+        db.MandatoryExamSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        // 7. Sembunyikan IsCorrect dari student
+        var questions = exam.Questions.OrderBy(q => q.Order).Select(q => new MandatoryQuestionResponse(
+            q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, q.Order,
+            q.Options.Select(o => new MandatoryOptionResponse(o.Id, o.Text, false)).ToList()
+        )).ToList();
+
+        return Ok(new PublicAccessExamResponse(
+            token,
+            activeAttempt!.Id, exam.Id, exam.Title, exam.Description,
+            exam.TimeLimitMinutes, isResume, activeAttempt.StartedAt,
+            questions));
+    }
+
     // ── Validate Token → start or resume attempt ──────────────────────────────
 
     // GET /api/mandatory-exams/validate-token?token=XYZ
@@ -488,7 +906,15 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
 
         await db.SaveChangesAsync();
 
-        return Ok(BuildResult(attempt, exam, answers));
+        var totalSubmitted = await db.MandatoryExamAttempts
+            .CountAsync(a => a.AssignmentId == assignment.Id && a.SubmittedAt != null);
+        var remaining = Math.Max(0, exam.MaxAttempts - totalSubmitted);
+
+        // Fire webhook (fire-and-forget — jangan blokir response user)
+        if (!string.IsNullOrWhiteSpace(exam.WebhookUrl))
+            _ = FireWebhookAsync(exam, attempt, pct, isPassed);
+
+        return Ok(BuildResult(attempt, exam, answers, remaining));
     }
 
     // ── Result ────────────────────────────────────────────────────────────────
@@ -504,6 +930,7 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
 
         var attempt = await db.MandatoryExamAttempts
             .Include(a => a.Answers)
+            .Include(a => a.Assignment).ThenInclude(a => a.Attempts)
             .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
         if (attempt == null) return NotFound();
         if (attempt.SubmittedAt == null) return BadRequest(new { message = "Attempt belum di-submit." });
@@ -513,7 +940,45 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
             .FirstOrDefaultAsync(e => e.Id == attempt.ExamId);
         if (exam == null) return NotFound();
 
-        return Ok(BuildResult(attempt, exam, attempt.Answers.ToList()));
+        var totalSubmitted = attempt.Assignment.Attempts.Count(a => a.SubmittedAt != null);
+        var remaining      = Math.Max(0, exam.MaxAttempts - totalSubmitted);
+
+        return Ok(BuildResult(attempt, exam, attempt.Answers.ToList(), remaining));
+    }
+
+    // ── Webhook ───────────────────────────────────────────────────────────────
+
+    private async Task FireWebhookAsync(MandatoryExam exam, MandatoryExamAttempt attempt, int pct, bool isPassed)
+    {
+        try
+        {
+            var client  = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
+
+            var payload = new
+            {
+                @event      = "exam_submitted",
+                examId      = exam.Id,
+                examTitle   = exam.Title,
+                userId      = attempt.UserId,
+                score       = attempt.Score ?? 0,
+                maxScore    = attempt.MaxScore ?? 0,
+                percentage  = pct,
+                isPassed,
+                submittedAt = attempt.SubmittedAt?.ToString("o"),
+            };
+
+            using var content = new System.Net.Http.StringContent(
+                System.Text.Json.JsonSerializer.Serialize(payload),
+                System.Text.Encoding.UTF8,
+                "application/json");
+
+            await client.PostAsync(exam.WebhookUrl, content);
+        }
+        catch
+        {
+            // Webhook gagal — tidak mempengaruhi flow user, log saja
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -543,7 +1008,8 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
     }
 
     private static MandatoryExamResultResponse BuildResult(
-        MandatoryExamAttempt attempt, MandatoryExam exam, List<MandatoryExamAnswer> answers)
+        MandatoryExamAttempt attempt, MandatoryExam exam,
+        List<MandatoryExamAnswer> answers, int remainingAttempts = 0)
     {
         var pct = attempt.MaxScore > 0
             ? (int)Math.Round((double)(attempt.Score ?? 0) / (attempt.MaxScore ?? 1) * 100)
@@ -566,6 +1032,7 @@ public class MandatoryExamSessionController(LmsDbContext db, MandatoryExamTokenS
             attempt.Id, exam.Id, exam.Title,
             attempt.Score ?? 0, attempt.MaxScore ?? 0, pct,
             attempt.IsPassed ?? false, exam.PassScore,
+            exam.MaxAttempts, remainingAttempts,
             attempt.StartedAt, attempt.SubmittedAt!.Value,
             answerResults);
     }

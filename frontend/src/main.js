@@ -73,7 +73,8 @@ function mountAccessDenied(pinia) {
 
   // ── MANDATORY EXAM DEEP LINK: bypass semua auth ──────────────────────────
   // URL: /exam/start?token=XYZ — diakses oleh user external tanpa login
-  if (window.location.pathname === '/exam/start' && urlParams.get('token')) {
+  if (window.location.pathname === '/exam/start' &&
+      (urlParams.get('token') || urlParams.get('code'))) {
     await syncAndMountApp(pinia)
     return
   }

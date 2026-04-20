@@ -9,13 +9,18 @@ public record CompletionRuleDto(
     int RequiredModulePercent,
     bool RequireAllAssignments,
     bool RequireAllQuizzesPassed,
+    bool RequireExamPassed,
+    int? RequiredExamId,
+    string? RequiredExamTitle,
     DateTime UpdatedAt
 );
 
 public record SetCompletionRuleRequest(
-    [Range(1, 100)] int RequiredModulePercent = 100,
+    [Range(0, 100)] int RequiredModulePercent = 100,
     bool RequireAllAssignments = false,
-    bool RequireAllQuizzesPassed = false
+    bool RequireAllQuizzesPassed = false,
+    bool RequireExamPassed = false,
+    int? RequiredExamId = null
 );
 
 // ── Completion Status (student view) ─────────────────────────────────────────
@@ -26,6 +31,8 @@ public record CompletionStatusDto(
     bool ModuleCriteriaMet,
     bool AssignmentCriteriaMet,    // true jika tidak ada syarat assignment, atau sudah terpenuhi
     bool QuizCriteriaMet,
+    bool ExamCriteriaMet,          // true jika tidak ada syarat ujian, atau sudah lulus
+    string? RequiredExamTitle,     // judul ujian yang diwajibkan (null jika tidak ada)
     bool IsCompleted,              // semua kriteria terpenuhi
     bool HasCertificate,
     string? CertificateNumber

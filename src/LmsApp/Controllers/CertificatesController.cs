@@ -29,14 +29,16 @@ public class CertificatesController(LmsDbContext db, ICompletionService completi
     public async Task<ActionResult<CompletionRuleDto>> GetRule(int courseId)
     {
         var rule = await db.CourseCompletionRules
+            .Include(r => r.RequiredExam)
             .FirstOrDefaultAsync(r => r.CourseId == courseId);
 
-        // Kembalikan default jika belum diset
         var dto = rule != null
             ? new CompletionRuleDto(
                 rule.CourseId, rule.RequiredModulePercent,
-                rule.RequireAllAssignments, rule.RequireAllQuizzesPassed, rule.UpdatedAt)
-            : new CompletionRuleDto(courseId, 100, false, false, DateTime.UtcNow);
+                rule.RequireAllAssignments, rule.RequireAllQuizzesPassed,
+                rule.RequireExamPassed, rule.RequiredExamId, rule.RequiredExam?.Title,
+                rule.UpdatedAt)
+            : new CompletionRuleDto(courseId, 100, false, false, false, null, null, DateTime.UtcNow);
 
         return Ok(dto);
     }
@@ -75,13 +77,25 @@ public class CertificatesController(LmsDbContext db, ICompletionService completi
         rule.RequiredModulePercent   = req.RequiredModulePercent;
         rule.RequireAllAssignments   = req.RequireAllAssignments;
         rule.RequireAllQuizzesPassed = req.RequireAllQuizzesPassed;
+        rule.RequireExamPassed       = req.RequireExamPassed;
+        rule.RequiredExamId          = req.RequireExamPassed ? req.RequiredExamId : null;
         rule.UpdatedAt               = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
 
+        // Load exam title jika ada
+        string? examTitle = null;
+        if (rule.RequiredExamId.HasValue)
+        {
+            var exam = await db.QuestionSets.FindAsync(rule.RequiredExamId.Value);
+            examTitle = exam?.Title;
+        }
+
         return Ok(new CompletionRuleDto(
             rule.CourseId, rule.RequiredModulePercent,
-            rule.RequireAllAssignments, rule.RequireAllQuizzesPassed, rule.UpdatedAt));
+            rule.RequireAllAssignments, rule.RequireAllQuizzesPassed,
+            rule.RequireExamPassed, rule.RequiredExamId, examTitle,
+            rule.UpdatedAt));
     }
 
     // ════════════════════════════════════════════════════════════════════════

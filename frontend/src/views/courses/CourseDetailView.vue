@@ -201,6 +201,53 @@
             <RouterLink :to="`/courses/${course.id}/edit`" class="btn-outline w-full">Edit Kursus</RouterLink>
             <RouterLink :to="`/courses/${course.id}/gradebook`" class="btn-outline w-full">Gradebook</RouterLink>
             <RouterLink :to="`/courses/${course.id}/forum`" class="btn-outline w-full">Forum</RouterLink>
+            <RouterLink :to="`/courses/${course.id}/question-bank`" class="btn-outline w-full">Bank Soal</RouterLink>
+            <button @click="toggleRulePanel" class="btn-outline w-full">⚙️ Syarat Sertifikat</button>
+          </div>
+
+          <!-- Completion Rule Panel -->
+          <div v-if="showRulePanel && canManageCourse" class="mt-3 border border-blue-200 rounded-xl p-4 bg-blue-50 space-y-3">
+            <p class="text-sm font-semibold text-blue-800">Syarat Kelulusan & Sertifikat</p>
+
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">Minimal % Modul Selesai</label>
+              <div class="flex items-center gap-2">
+                <input v-model.number="ruleForm.requiredModulePercent" type="number" min="0" max="100"
+                  class="w-20 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                <span class="text-xs text-gray-500">% (0 = tidak diwajibkan)</span>
+              </div>
+            </div>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="ruleForm.requireAllAssignments" class="accent-blue-600" />
+              <span class="text-sm text-gray-700">Wajibkan submit semua tugas</span>
+            </label>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="ruleForm.requireAllQuizzesPassed" class="accent-blue-600" />
+              <span class="text-sm text-gray-700">Wajibkan lulus semua quiz</span>
+            </label>
+
+            <div>
+              <label class="flex items-center gap-2 cursor-pointer mb-2">
+                <input type="checkbox" v-model="ruleForm.requireExamPassed" class="accent-blue-600" />
+                <span class="text-sm text-gray-700">Wajibkan lulus ujian tertentu</span>
+              </label>
+              <div v-if="ruleForm.requireExamPassed" class="ml-6">
+                <label class="text-xs text-gray-500 block mb-1">Pilih Ujian</label>
+                <select v-model="ruleForm.requiredExamId"
+                  class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                  <option :value="null" disabled>-- Pilih ujian --</option>
+                  <option v-for="qs in availableExams" :key="qs.id" :value="qs.id">{{ qs.title }}</option>
+                </select>
+                <p v-if="availableExams.length === 0" class="text-xs text-gray-400 mt-1">Belum ada ujian tersedia.</p>
+              </div>
+            </div>
+
+            <button @click="saveCompletionRule" :disabled="savingRule"
+              class="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              {{ savingRule ? 'Menyimpan...' : 'Simpan Pengaturan' }}
+            </button>
           </div>
         </div>
       </div>
@@ -213,10 +260,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { coursesApi, resourcesApi } from '@/api/courses'
+import { certificatesApi } from '@/api/certificates'
+import { questionSetsApi } from '@/api/questionSets'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -231,6 +280,54 @@ const review = ref({ rating: 5, comment: '' })
 const canManageCourse = computed(() =>
   auth.isAdmin || (auth.isTeacher && course.value?.instructorId === auth.user?.userId)
 )
+
+// ── Completion Rule Settings ──────────────────────────────────────────────────
+const showRulePanel  = ref(false)
+const savingRule     = ref(false)
+const availableExams = ref([])
+const ruleForm = reactive({
+  requiredModulePercent: 100,
+  requireAllAssignments: false,
+  requireAllQuizzesPassed: false,
+  requireExamPassed: false,
+  requiredExamId: null,
+})
+
+async function toggleRulePanel() {
+  showRulePanel.value = !showRulePanel.value
+  if (showRulePanel.value) {
+    // Load current rule + available exams
+    try {
+      const [ruleRes, examsRes] = await Promise.all([
+        certificatesApi.getCompletionRule(route.params.id),
+        questionSetsApi.getAll(),
+      ])
+      const r = ruleRes.data
+      ruleForm.requiredModulePercent  = r.requiredModulePercent ?? 100
+      ruleForm.requireAllAssignments  = r.requireAllAssignments ?? false
+      ruleForm.requireAllQuizzesPassed = r.requireAllQuizzesPassed ?? false
+      ruleForm.requireExamPassed      = r.requireExamPassed ?? false
+      ruleForm.requiredExamId         = r.requiredExamId ?? null
+      availableExams.value = (Array.isArray(examsRes.data) ? examsRes.data : [])
+        .filter(qs => qs.isPublished || auth.isAdmin || auth.isTeacher)
+    } catch (e) {
+      console.error('Gagal memuat pengaturan sertifikat', e)
+    }
+  }
+}
+
+async function saveCompletionRule() {
+  savingRule.value = true
+  try {
+    await certificatesApi.setCompletionRule(route.params.id, { ...ruleForm })
+    showRulePanel.value = false
+    alert('Pengaturan sertifikat berhasil disimpan.')
+  } catch (e) {
+    alert(e?.response?.data?.message ?? 'Gagal menyimpan pengaturan.')
+  } finally {
+    savingRule.value = false
+  }
+}
 
 // Gabungkan semua modul: dari sections + yang tidak punya section
 // API mengembalikan `sections[].modules` dan `unsectionedModules`, bukan `modules`

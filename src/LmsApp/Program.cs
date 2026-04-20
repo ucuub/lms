@@ -10,14 +10,18 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────────────────
-// Gunakan SQLite jika connection string dimulai dengan "Data Source"
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+
+static bool IsSqlite(string s)    => s.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase);
+static bool IsSqlServer(string s) => s.Contains("Server=", StringComparison.OrdinalIgnoreCase)
+                                  || s.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase)
+                                  || s.Contains("Trusted_Connection=", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddDbContext<LmsDbContext>(options =>
 {
-    if (connStr.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase))
-        options.UseSqlite(connStr);
-    else
-        options.UseNpgsql(connStr);
+    if      (IsSqlite(connStr))    options.UseSqlite(connStr);
+    else if (IsSqlServer(connStr)) options.UseSqlServer(connStr);
+    else                           options.UseNpgsql(connStr);
 });
 
 // ── Keycloak JWT Authentication ───────────────────────────────────────────────
@@ -133,6 +137,7 @@ builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
 builder.Services.AddSingleton<MandatoryExamTokenService>();
+builder.Services.AddHttpClient(); // untuk webhook DWI Mobile
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -232,9 +237,16 @@ app.MapControllers();
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
-    var isSqlite = connStr.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase);
+    var isSqlite    = IsSqlite(connStr);
+    var isSqlServer = IsSqlServer(connStr);
 
-    if (isSqlite)
+    if (isSqlServer)
+    {
+        // SQL Server: EnsureCreated buat semua tabel dari EF model jika DB baru.
+        // Untuk DB yang sudah ada, schema sudah tersedia — skip recreate.
+        db.Database.EnsureCreated();
+    }
+    else if (isSqlite)
     {
         // SQLite: drop + recreate jika tabel baru belum ada (EnsureCreated tidak update schema)
         if (app.Environment.IsDevelopment())
@@ -252,6 +264,10 @@ app.MapControllers();
                 _ = db.Exams.Any();
                 // Deteksi tabel QuestionSet baru
                 _ = db.QuestionSets.Any();
+                // Deteksi tabel CourseQuestionBank baru
+                _ = db.CourseQuestionBanks.Any();
+                // Deteksi kolom PublicAccessCode di MandatoryExams
+                _ = db.MandatoryExams.Any(e => e.PublicAccessCode == null);
             }
             catch
             {
@@ -418,7 +434,46 @@ app.MapControllers();
             )
             """);
 
+        // ── Course Question Bank ──────────────────────────────────────────────
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "CourseQuestionBanks" (
+                "Id"            SERIAL PRIMARY KEY,
+                "CourseId"      INTEGER NOT NULL
+                    REFERENCES "Courses"("Id") ON DELETE CASCADE,
+                "ModuleId"      INTEGER
+                    REFERENCES "CourseModules"("Id") ON DELETE SET NULL,
+                "Text"          TEXT NOT NULL DEFAULT '',
+                "Type"          INTEGER NOT NULL DEFAULT 0,
+                "Points"        INTEGER NOT NULL DEFAULT 10,
+                "Explanation"   TEXT,
+                "CreatedBy"     TEXT NOT NULL DEFAULT '',
+                "CreatedByName" TEXT NOT NULL DEFAULT '',
+                "CreatedAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "CourseQuestionBankOptions" (
+                "Id"                    SERIAL PRIMARY KEY,
+                "CourseQuestionBankId"  INTEGER NOT NULL
+                    REFERENCES "CourseQuestionBanks"("Id") ON DELETE CASCADE,
+                "Text"                  TEXT NOT NULL DEFAULT '',
+                "IsCorrect"             BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            """);
+
         // ── Mandatory Exam ────────────────────────────────────────────────────
+        // Tambah kolom PublicAccessCode jika belum ada (upgrade DB yang sudah ada)
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE "MandatoryExams"
+            ADD COLUMN IF NOT EXISTS "PublicAccessCode" TEXT
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_MandatoryExams_PublicAccessCode"
+            ON "MandatoryExams" ("PublicAccessCode")
+            WHERE "PublicAccessCode" IS NOT NULL
+            """);
+
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS "MandatoryExams" (
                 "Id"               SERIAL PRIMARY KEY,

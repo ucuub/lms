@@ -232,20 +232,22 @@ const requirements = computed(() => {
 
   const list = []
 
-  // Module percent
+  // Module percent (hanya tampilkan jika ada syarat modul)
   const minPct = rule.value.requiredModulePercent ?? 100
-  list.push({
-    label: `Selesaikan minimal ${minPct}% modul`,
-    detail: `Progress kamu: ${status.value.percentage}% (${status.value.completedModules}/${status.value.totalModules} modul)`,
-    met: (status.value.percentage ?? 0) >= minPct
-  })
+  if (minPct > 0) {
+    list.push({
+      label: `Selesaikan minimal ${minPct}% modul`,
+      detail: `Progress kamu: ${Math.round(status.value.modulePercent ?? 0)}%`,
+      met: status.value.moduleCriteriaMet ?? false
+    })
+  }
 
   // Assignments
   if (rule.value.requireAllAssignments) {
     list.push({
       label: 'Kumpulkan semua tugas',
-      detail: status.value.allAssignmentsSubmitted ? 'Semua tugas sudah dikumpulkan' : 'Ada tugas yang belum dikumpulkan',
-      met: !!status.value.allAssignmentsSubmitted
+      detail: status.value.assignmentCriteriaMet ? 'Semua tugas sudah dikumpulkan' : 'Ada tugas yang belum dikumpulkan',
+      met: status.value.assignmentCriteriaMet ?? false
     })
   }
 
@@ -253,8 +255,18 @@ const requirements = computed(() => {
   if (rule.value.requireAllQuizzesPassed) {
     list.push({
       label: 'Lulus semua quiz',
-      detail: status.value.allQuizzesPassed ? 'Semua quiz sudah lulus' : 'Ada quiz yang belum lulus',
-      met: !!status.value.allQuizzesPassed
+      detail: status.value.quizCriteriaMet ? 'Semua quiz sudah lulus' : 'Ada quiz yang belum lulus',
+      met: status.value.quizCriteriaMet ?? false
+    })
+  }
+
+  // Exam
+  if (rule.value.requireExamPassed && rule.value.requiredExamId) {
+    const examTitle = status.value.requiredExamTitle ?? rule.value.requiredExamTitle ?? 'Ujian'
+    list.push({
+      label: `Lulus ujian: ${examTitle}`,
+      detail: status.value.examCriteriaMet ? 'Ujian sudah lulus' : 'Belum lulus ujian ini',
+      met: status.value.examCriteriaMet ?? false
     })
   }
 

@@ -27,5 +27,17 @@ public class CourseCompletionRule
     /// </summary>
     public bool RequireAllQuizzesPassed { get; set; } = false;
 
+    /// <summary>
+    /// Jika true, student harus lulus ujian tertentu (RequiredExamId) untuk mendapat sertifikat.
+    /// </summary>
+    public bool RequireExamPassed { get; set; } = false;
+
+    /// <summary>
+    /// ID QuestionSet yang harus dilulus. Null jika RequireExamPassed = false.
+    /// </summary>
+    public int? RequiredExamId { get; set; }
+
+    public QuestionSet? RequiredExam { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

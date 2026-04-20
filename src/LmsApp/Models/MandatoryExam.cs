@@ -9,6 +9,12 @@ public class MandatoryExam
     public int MaxAttempts { get; set; } = 1;
     public int PassScore { get; set; } = 60; // persen
     public bool IsActive { get; set; } = true;
+    /// <summary>UUID untuk public link (satu link per exam, tanpa userId).
+    /// Null = belum digenerate. DWI Mobile append userId saat membuka.</summary>
+    public string? PublicAccessCode { get; set; }
+
+    /// <summary>Webhook URL DWI Mobile — dipanggil otomatis saat user submit ujian.</summary>
+    public string? WebhookUrl { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

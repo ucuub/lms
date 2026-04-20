@@ -10,6 +10,15 @@ public record CreateMandatoryExamRequest(
     int PassScore
 );
 
+public record UpdateMandatoryExamRequest(
+    string Title,
+    string? Description,
+    int? TimeLimitMinutes,
+    int MaxAttempts,
+    int PassScore,
+    string? WebhookUrl
+);
+
 public record AddMandatoryQuestionRequest(
     string Text,
     string Type,
@@ -18,6 +27,15 @@ public record AddMandatoryQuestionRequest(
 );
 
 public record MandatoryOptionRequest(string Text, bool IsCorrect);
+
+public record UpdateMandatoryQuestionRequest(
+    string Text,
+    int Points,
+    List<MandatoryOptionRequest> Options
+);
+
+public record ReorderQuestionsRequest(List<QuestionOrderItem> Items);
+public record QuestionOrderItem(int QuestionId, int Order);
 
 public record AssignMandatoryExamRequest(string UserId, string UserName);
 
@@ -45,7 +63,9 @@ public record MandatoryExamSummaryResponse(
     bool IsActive,
     int QuestionCount,
     int AssignmentCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? PublicAccessCode,
+    string? PublicLink
 );
 
 public record MandatoryExamDetailResponse(
@@ -100,6 +120,20 @@ public record MandatoryExamSessionResponse(
 
 // ── Deep Link Session Responses ───────────────────────────────────────────────
 
+/// Response dari endpoint public access (code-based, tanpa per-user token di URL).
+/// Sama seperti ValidateMandatoryTokenResponse + token untuk submit.
+public record PublicAccessExamResponse(
+    string ExamToken,   // JWT — dipakai di X-Exam-Token header saat submit
+    int AttemptId,
+    int ExamId,
+    string ExamTitle,
+    string? ExamDescription,
+    int? TimeLimitMinutes,
+    bool IsResume,
+    DateTime StartedAt,
+    List<MandatoryQuestionResponse> Questions
+);
+
 public record ValidateMandatoryTokenResponse(
     int AttemptId,
     int ExamId,
@@ -120,6 +154,8 @@ public record MandatoryExamResultResponse(
     int Percentage,
     bool IsPassed,
     int PassScore,
+    int MaxAttempts,
+    int RemainingAttempts,
     DateTime StartedAt,
     DateTime SubmittedAt,
     List<MandatoryAnswerResultResponse> Answers
@@ -138,3 +174,32 @@ public record MandatoryAnswerResultResponse(
     string? Feedback,
     string? CorrectAnswer
 );
+
+// ── Admin Results ─────────────────────────────────────────────────────────────
+
+public record MandatoryAttemptSummaryResponse(
+    int Id,
+    string UserId,
+    string UserName,
+    int? Score,
+    int? MaxScore,
+    int? Percentage,
+    bool? IsPassed,
+    DateTime StartedAt,
+    DateTime? SubmittedAt,
+    List<MandatoryEssayAnswerAdminResponse> EssayAnswers
+);
+
+public record MandatoryEssayAnswerAdminResponse(
+    int AnswerId,
+    int QuestionId,
+    string QuestionText,
+    int MaxPoints,
+    string? EssayAnswer,
+    int? EarnedPoints,
+    string? Feedback
+);
+
+public record GradeEssayAnswerRequest(int EarnedPoints, string? Feedback);
+
+public record ImportQuestionsRequest(List<int> QuestionBankIds);

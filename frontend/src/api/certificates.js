@@ -2,9 +2,10 @@ import api from './axios'
 
 export const certificatesApi = {
   // Completion
-  getCompletionStatus: (courseId) => api.get(`/courses/${courseId}/completion-status`),
-  getCompletionRule:   (courseId) => api.get(`/courses/${courseId}/completion-rule`),
-  claimCertificate:   (courseId) => api.post(`/courses/${courseId}/certificate/claim`),
+  getCompletionStatus: (courseId)       => api.get(`/courses/${courseId}/completion-status`),
+  getCompletionRule:   (courseId)       => api.get(`/courses/${courseId}/completion-rule`),
+  setCompletionRule:   (courseId, data) => api.put(`/courses/${courseId}/completion-rule`, data),
+  claimCertificate:    (courseId)       => api.post(`/courses/${courseId}/certificate/claim`),
 
   // My certificates
   getMyCertificates: () => api.get('/certificates/me'),

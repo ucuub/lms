@@ -105,6 +105,26 @@
         <p class="text-sm text-gray-500">
           Skor: {{ result.score }} / {{ result.maxScore }} · Minimum lulus: {{ result.passScore }}%
         </p>
+        <div class="flex items-center justify-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
+          <span>Percobaan {{ result.maxAttempts - result.remainingAttempts }} dari {{ result.maxAttempts }}</span>
+          <span>·</span>
+          <span>Durasi: {{ examDuration }}</span>
+        </div>
+        <!-- Essay pending note -->
+        <div v-if="hasEssay" class="mt-3 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+          Ada soal essay yang menunggu penilaian guru. Skor akhir mungkin berubah setelah dinilai.
+        </div>
+
+        <!-- Retry button -->
+        <div v-if="!result.isPassed && result.remainingAttempts > 0" class="mt-4">
+          <button @click="retryExam"
+            class="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">
+            Coba Lagi ({{ result.remainingAttempts }} percobaan tersisa)
+          </button>
+        </div>
+        <div v-else-if="!result.isPassed && result.remainingAttempts === 0" class="mt-3">
+          <p class="text-xs text-red-500 font-medium">Percobaan sudah habis.</p>
+        </div>
       </div>
 
       <!-- Answer breakdown -->
@@ -144,15 +164,19 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+
+
 import { useRoute } from 'vue-router'
 import { mandatoryExamSession } from '@/api/mandatoryExam'
 
 const route  = useRoute()
-const token  = computed(() => route.query.token || '')
+
+// token bisa dari URL (?token=) atau dari response accessByCode (?code=)
+const examToken = ref(route.query.token || '')
 
 const state      = ref('loading') // loading | error | exam | result
 const errorMsg   = ref('')
-const session    = ref(null)      // ValidateMandatoryTokenResponse
+const session    = ref(null)      // ValidateMandatoryTokenResponse / PublicAccessExamResponse
 const result     = ref(null)      // MandatoryExamResultResponse
 const submitting = ref(false)
 
@@ -162,18 +186,42 @@ const timeLeft = ref(0)
 const currentIdx = ref(0)
 let   timer    = null
 
-onMounted(async () => {
-  if (!token.value) {
-    errorMsg.value = 'Token tidak ditemukan di URL.'
-    state.value    = 'error'
-    return
-  }
+async function startExam() {
+  const tokenParam    = route.query.token
+  const codeParam     = route.query.code
+  const userIdParam   = route.query.userId
+  const userNameParam = route.query.userName
+
+  state.value = 'loading'
 
   try {
-    const { data } = await mandatoryExamSession.validateToken(token.value)
-    session.value  = data
+    let data
 
-    // Init answer slots
+    if (codeParam) {
+      if (!userIdParam) {
+        errorMsg.value = 'Parameter userId diperlukan. Pastikan link dibuka melalui aplikasi DWI Mobile.'
+        state.value    = 'error'
+        return
+      }
+      const res = await mandatoryExamSession.accessByCode(codeParam, userIdParam, userNameParam)
+      data = res.data
+      examToken.value = data.examToken
+
+    } else if (tokenParam) {
+      examToken.value = tokenParam
+      const res = await mandatoryExamSession.validateToken(tokenParam)
+      data = res.data
+
+    } else {
+      errorMsg.value = 'Link ujian tidak valid.'
+      state.value    = 'error'
+      return
+    }
+
+    session.value = data
+
+    // Reset & init answer slots
+    Object.keys(answers).forEach(k => delete answers[k])
     for (const q of data.questions) {
       answers[q.id] = { selectedOptionId: null, essayAnswer: '' }
     }
@@ -187,11 +235,10 @@ onMounted(async () => {
           timeLeft.value--
           if (timeLeft.value <= 0) {
             clearInterval(timer)
-            submitExam() // auto-submit
+            submitExam()
           }
         }, 1000)
       } else {
-        // Time already up — auto-submit immediately
         submitExam()
         return
       }
@@ -203,9 +250,30 @@ onMounted(async () => {
     errorMsg.value = msg || 'Token tidak valid atau sudah expired.'
     state.value    = 'error'
   }
-})
+}
+
+async function retryExam() {
+  if (timer) clearInterval(timer)
+  result.value  = null
+  session.value = null
+  await startExam()
+}
+
+onMounted(startExam)
 
 onUnmounted(() => { if (timer) clearInterval(timer) })
+
+const examDuration = computed(() => {
+  if (!result.value) return ''
+  const ms = new Date(result.value.submittedAt) - new Date(result.value.startedAt)
+  const totalMin = Math.floor(ms / 60000)
+  const secs     = Math.floor((ms % 60000) / 1000)
+  return totalMin > 0 ? `${totalMin} menit ${secs} detik` : `${secs} detik`
+})
+
+const hasEssay = computed(() =>
+  result.value?.answers?.some(a => a.questionType === 'Essay') ?? false
+)
 
 function formatTime(secs) {
   const m = String(Math.floor(secs / 60)).padStart(2, '0')
@@ -243,7 +311,7 @@ async function submitExam() {
       }))
     }
 
-    const { data } = await mandatoryExamSession.submit(session.value.attemptId, payload, token.value)
+    const { data } = await mandatoryExamSession.submit(session.value.attemptId, payload, examToken.value)
     result.value = data
     state.value  = 'result'
   } catch (e) {

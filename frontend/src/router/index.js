@@ -15,6 +15,7 @@ const routes = [
       { path: 'courses/create',               name: 'CourseCreate', component: () => import('@/views/courses/CourseFormView.vue'), meta: { role: 'teacher' } },
       { path: 'courses/:id',                  name: 'CourseDetail', component: () => import('@/views/courses/CourseDetailView.vue') },
       { path: 'courses/:id/edit',             name: 'CourseEdit',   component: () => import('@/views/courses/CourseFormView.vue'),   meta: { role: 'teacher' } },
+      { path: 'courses/:courseId/question-bank', name: 'CourseQuestionBank', component: () => import('@/views/courses/CourseQuestionBankView.vue'), meta: { role: 'teacher' } },
 
       // Modules
       { path: 'courses/:courseId/modules/:id',        name: 'ModuleView',   component: () => import('@/views/modules/ModuleView.vue') },

@@ -37,3 +37,11 @@ tsconfig.json
 
 ## Docker
 docker-compose.override.yml
+
+## SQLite local dev database
+*.db
+*.db-shm
+*.db-wal
+
+## Uploaded files (user content)
+src/LmsApp/wwwroot/uploads/

@@ -63,7 +63,21 @@ public class CompletionService(LmsDbContext db, INotificationService notificatio
             }
         }
 
-        var isCompleted = moduleMet && assignmentMet && quizMet;
+        // 4. Cek ujian (hanya jika rule mewajibkan)
+        var examMet = true;
+        string? requiredExamTitle = null;
+        if (rule.RequireExamPassed && rule.RequiredExamId.HasValue)
+        {
+            var exam = await db.QuestionSets.FindAsync(rule.RequiredExamId.Value);
+            requiredExamTitle = exam?.Title;
+
+            examMet = await db.QuestionSetAttempts
+                .AnyAsync(a => a.UserId == userId
+                            && a.QuestionSetId == rule.RequiredExamId.Value
+                            && a.IsPassed);
+        }
+
+        var isCompleted = moduleMet && assignmentMet && quizMet && examMet;
 
         // Cek apakah sudah punya sertifikat
         var cert = await db.Certificates
@@ -75,6 +89,8 @@ public class CompletionService(LmsDbContext db, INotificationService notificatio
             ModuleCriteriaMet: moduleMet,
             AssignmentCriteriaMet: assignmentMet,
             QuizCriteriaMet: quizMet,
+            ExamCriteriaMet: examMet,
+            RequiredExamTitle: requiredExamTitle,
             IsCompleted: isCompleted,
             HasCertificate: cert != null,
             CertificateNumber: cert?.CertificateNumber
@@ -179,10 +195,12 @@ public class CompletionService(LmsDbContext db, INotificationService notificatio
             .FirstOrDefaultAsync(r => r.CourseId == courseId)
             ?? new CourseCompletionRule
             {
-                CourseId               = courseId,
-                RequiredModulePercent  = 100,
-                RequireAllAssignments  = false,
-                RequireAllQuizzesPassed = false
+                CourseId                = courseId,
+                RequiredModulePercent   = 100,
+                RequireAllAssignments   = false,
+                RequireAllQuizzesPassed = false,
+                RequireExamPassed       = false,
+                RequiredExamId          = null,
             };
     }
 

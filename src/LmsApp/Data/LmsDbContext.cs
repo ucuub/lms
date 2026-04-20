@@ -82,6 +82,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<QuestionSetAttempt> QuestionSetAttempts => Set<QuestionSetAttempt>();
     public DbSet<QuestionSetAnswer> QuestionSetAnswers => Set<QuestionSetAnswer>();
 
+    // Course Question Bank (per-course, per-module bank soal)
+    public DbSet<CourseQuestionBank> CourseQuestionBanks => Set<CourseQuestionBank>();
+    public DbSet<CourseQuestionBankOption> CourseQuestionBankOptions => Set<CourseQuestionBankOption>();
+
     // Mandatory Exam (deep-link, per-user assignment)
     public DbSet<MandatoryExam> MandatoryExams => Set<MandatoryExam>();
     public DbSet<MandatoryExamQuestion> MandatoryExamQuestions => Set<MandatoryExamQuestion>();
@@ -544,11 +548,49 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        // ── Course Question Bank ──────────────────────────────────────────────
+
+        modelBuilder.Entity<CourseQuestionBank>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.Property(q => q.Text).IsRequired();
+            e.Property(q => q.CreatedBy).HasMaxLength(100).IsRequired();
+            // FK ke Course — cascade: hapus course → hapus semua soal bank
+            e.HasOne(q => q.Course)
+                .WithMany()
+                .HasForeignKey(q => q.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // FK ke Module (nullable) — SetNull: hapus module → ModuleId jadi null
+            e.HasOne(q => q.Module)
+                .WithMany()
+                .HasForeignKey(q => q.ModuleId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasMany(q => q.Options)
+                .WithOne(o => o.Question)
+                .HasForeignKey(o => o.CourseQuestionBankId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(q => new { q.CourseId, q.ModuleId });
+        });
+
+        modelBuilder.Entity<CourseQuestionBankOption>(e =>
+        {
+            e.HasKey(o => o.Id);
+            e.Property(o => o.Text).IsRequired();
+        });
+
         // ── Mandatory Exam ────────────────────────────────────────────────────
 
         modelBuilder.Entity<MandatoryExam>(e =>
         {
             e.HasKey(x => x.Id);
+            // PublicAccessCode unik per exam, NULL diperbolehkan (belum digenerate).
+            // Filter syntax berbeda per provider agar multiple NULL tetap diizinkan.
+            var provider = Database.ProviderName ?? "";
+            var idx = e.HasIndex(x => x.PublicAccessCode).IsUnique();
+            if (provider.Contains("Npgsql"))
+                idx.HasFilter("\"PublicAccessCode\" IS NOT NULL");
+            else if (provider.Contains("SqlServer"))
+                idx.HasFilter("[PublicAccessCode] IS NOT NULL");
             e.HasMany(x => x.Questions)
                 .WithOne(q => q.Exam)
                 .HasForeignKey(q => q.ExamId)
