@@ -39,6 +39,11 @@
           <label for="pub" class="text-sm">Publikasikan modul ini</label>
         </div>
 
+        <!-- Error simpan -->
+        <div v-if="saveError" class="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {{ saveError }}
+        </div>
+
         <div class="flex gap-3 items-center">
           <button type="submit" :disabled="saving" class="btn-primary">
             <span v-if="saving" class="flex items-center gap-2">
@@ -155,6 +160,7 @@ const router = useRouter()
 const isEdit = computed(() => !!route.params.id && route.params.id !== 'create')
 const saving = ref(false)
 const uploadProgress = ref('')
+const saveError = ref('')
 const form = ref({ title: '', content: '', videoUrl: '', order: 0, isPublished: true, durationMinutes: 0 })
 
 // Attachment state
@@ -171,22 +177,42 @@ const MAX_SIZE = 100 * 1024 * 1024
 
 async function save() {
   saving.value = true
+  saveError.value = ''
+
   try {
     if (isEdit.value) {
       await modulesApi.update(route.params.courseId, route.params.id, form.value)
       router.push(`/courses/${route.params.courseId}`)
-    } else {
-      const { data } = await modulesApi.create(route.params.courseId, form.value)
-      // Upload semua file yang sudah dipilih
-      for (let i = 0; i < pendingFiles.value.length; i++) {
-        const f = pendingFiles.value[i]
-        uploadProgress.value = `Mengupload file ${i + 1}/${pendingFiles.value.length}...`
-        await modulesApi.uploadAttachment(route.params.courseId, data.id, f)
-      }
-      router.push(`/courses/${route.params.courseId}`)
+      return
     }
-  } catch (e) {
-    alert(e.response?.data?.message || 'Gagal menyimpan modul. Silakan coba lagi.')
+
+    // — Buat modul —
+    let createdId
+    try {
+      const { data } = await modulesApi.create(route.params.courseId, form.value)
+      createdId = data.id
+    } catch (e) {
+      saveError.value = e.response?.data?.message
+        || `Gagal menyimpan modul (HTTP ${e.response?.status ?? 'network error'}).`
+      return
+    }
+
+    // — Upload file satu per satu —
+    for (let i = 0; i < pendingFiles.value.length; i++) {
+      const f = pendingFiles.value[i]
+      uploadProgress.value = `Mengupload file ${i + 1}/${pendingFiles.value.length}: ${f.name}`
+      try {
+        await modulesApi.uploadAttachment(route.params.courseId, createdId, f)
+      } catch (e) {
+        const msg = e.response?.data?.message
+          || `Gagal mengupload "${f.name}" (HTTP ${e.response?.status ?? 'network error'}).`
+        saveError.value = `${msg} — Modul sudah tersimpan, kamu bisa upload ulang di halaman Edit.`
+        router.push(`/courses/${route.params.courseId}/modules/${createdId}/edit`)
+        return
+      }
+    }
+
+    router.push(`/courses/${route.params.courseId}`)
   } finally {
     saving.value = false
     uploadProgress.value = ''

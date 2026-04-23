@@ -205,7 +205,7 @@ public class ModulesController(
         var module = await db.CourseModules.FindAsync(id);
         if (module == null || module.CourseId != courseId) return NotFound();
 
-        if (!fileService.IsValidFile(file, [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".zip", ".mp4", ".mp3"], 100 * 1024 * 1024))
+        if (!fileService.IsValidFile(file, [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".zip", ".mp4", ".mp3"], 100 * 1024 * 1024))
             return BadRequest(new { message = "File tidak valid atau melebihi batas ukuran." });
 
         var url = await fileService.UploadAsync(file, "modules");
