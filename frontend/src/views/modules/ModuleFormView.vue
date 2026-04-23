@@ -39,22 +39,23 @@
           <label for="pub" class="text-sm">Publikasikan modul ini</label>
         </div>
 
-        <div class="flex gap-3">
+        <div class="flex gap-3 items-center">
           <button type="submit" :disabled="saving" class="btn-primary">
-            {{ saving ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan & Lanjut') }}
+            <span v-if="saving" class="flex items-center gap-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+              {{ uploadProgress || 'Menyimpan...' }}
+            </span>
+            <span v-else>
+              {{ isEdit ? 'Simpan Perubahan' : (pendingFiles.length ? `Simpan + Upload ${pendingFiles.length} File` : 'Simpan') }}
+            </span>
           </button>
           <button type="button" @click="$router.back()" class="btn-outline">Batal</button>
         </div>
-
-        <!-- Info: lampiran bisa ditambah setelah modul disimpan (create mode only) -->
-        <p v-if="!isEdit" class="text-xs text-gray-400 mt-1">
-          Setelah disimpan, kamu bisa menambahkan lampiran file ke modul ini.
-        </p>
       </form>
     </div>
 
-    <!-- Attachment section — hanya muncul saat edit (sudah ada module ID) -->
-    <div v-if="isEdit" class="card p-6 mt-6">
+    <!-- Lampiran File — tampil di create dan edit mode -->
+    <div class="card p-6 mt-6">
       <h2 class="font-semibold text-gray-900 mb-1">Lampiran File</h2>
       <p class="text-xs text-gray-400 mb-4">
         Format didukung: PDF, Word, PowerPoint, Excel, ZIP, MP4, MP3 · Maks 100 MB per file
@@ -62,9 +63,11 @@
 
       <!-- Upload area -->
       <div
-        class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer"
+        class="border-2 border-dashed rounded-lg p-6 text-center transition cursor-pointer"
+        :class="isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400'"
         @click="fileInput.click()"
-        @dragover.prevent
+        @dragover.prevent="isDragging = true"
+        @dragleave.prevent="isDragging = false"
         @drop.prevent="onDrop"
       >
         <svg class="w-10 h-10 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,22 +76,47 @@
         <p class="text-sm text-gray-500">Klik atau drag & drop file ke sini</p>
         <input ref="fileInput" type="file" class="hidden"
           accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4,.mp3"
-          @change="uploadFile" />
+          multiple
+          @change="onFileChange" />
       </div>
 
-      <!-- Upload progress -->
-      <div v-if="uploading" class="mt-3 flex items-center gap-2 text-sm text-blue-600">
+      <!-- Error validasi -->
+      <div v-if="uploadError" class="mt-2 text-sm text-red-600">{{ uploadError }}</div>
+
+      <!-- CREATE MODE: file yang sudah dipilih (antrian, belum diupload) -->
+      <div v-if="!isEdit && pendingFiles.length" class="mt-4 space-y-2">
+        <p class="text-xs text-gray-500 font-medium">File akan diupload saat Simpan:</p>
+        <div v-for="(f, i) in pendingFiles" :key="i"
+          class="flex items-center justify-between p-3 rounded-lg border border-blue-100 bg-blue-50">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold uppercase shrink-0">
+              {{ getExt(f.name) }}
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-800 truncate">{{ f.name }}</p>
+              <p class="text-xs text-gray-400">{{ formatSize(f.size) }}</p>
+            </div>
+          </div>
+          <button type="button" @click="pendingFiles.splice(i, 1)"
+            class="text-red-400 hover:text-red-600 ml-3 shrink-0 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- EDIT MODE: upload progress -->
+      <div v-if="isEdit && uploading" class="mt-3 flex items-center gap-2 text-sm text-blue-600">
         <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
         Mengupload {{ uploadingName }}...
       </div>
-      <div v-if="uploadError" class="mt-2 text-sm text-red-600">{{ uploadError }}</div>
 
-      <!-- Existing attachments -->
-      <div v-if="attachments.length" class="mt-4 space-y-2">
+      <!-- EDIT MODE: daftar lampiran yang sudah ada -->
+      <div v-if="isEdit && attachments.length" class="mt-4 space-y-2">
         <div v-for="att in attachments" :key="att.id"
           class="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50">
           <div class="flex items-center gap-3 min-w-0">
-            <!-- File type icon -->
             <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold uppercase shrink-0">
               {{ att.fileType }}
             </div>
@@ -97,7 +125,8 @@
               <p class="text-xs text-gray-400">{{ formatSize(att.fileSize) }}</p>
             </div>
           </div>
-          <button @click="deleteAttachment(att)" class="text-red-400 hover:text-red-600 ml-3 shrink-0 transition">
+          <button type="button" @click="deleteAttachment(att)"
+            class="text-red-400 hover:text-red-600 ml-3 shrink-0 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
@@ -105,7 +134,12 @@
         </div>
       </div>
 
-      <p v-else-if="!uploading" class="mt-4 text-sm text-gray-400 text-center">Belum ada lampiran.</p>
+      <p v-if="isEdit && !attachments.length && !uploading" class="mt-4 text-sm text-gray-400 text-center">
+        Belum ada lampiran.
+      </p>
+      <p v-if="!isEdit && !pendingFiles.length" class="mt-4 text-sm text-gray-400 text-center">
+        Pilih file di atas untuk menambahkan lampiran.
+      </p>
     </div>
   </div>
 </template>
@@ -120,14 +154,20 @@ const router = useRouter()
 
 const isEdit = computed(() => !!route.params.id && route.params.id !== 'create')
 const saving = ref(false)
+const uploadProgress = ref('')
 const form = ref({ title: '', content: '', videoUrl: '', order: 0, isPublished: true, durationMinutes: 0 })
 
 // Attachment state
 const fileInput = ref(null)
-const attachments = ref([])
+const attachments = ref([])       // Sudah diupload (edit mode)
+const pendingFiles = ref([])      // Antrian lokal belum diupload (create mode)
 const uploading = ref(false)
 const uploadingName = ref('')
 const uploadError = ref('')
+const isDragging = ref(false)
+
+const ALLOWED = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.mp4', '.mp3']
+const MAX_SIZE = 100 * 1024 * 1024
 
 async function save() {
   saving.value = true
@@ -136,47 +176,66 @@ async function save() {
       await modulesApi.update(route.params.courseId, route.params.id, form.value)
       router.push(`/courses/${route.params.courseId}`)
     } else {
-      // Setelah create, redirect ke edit page agar user langsung bisa tambah lampiran
       const { data } = await modulesApi.create(route.params.courseId, form.value)
-      router.push(`/courses/${route.params.courseId}/modules/${data.id}/edit`)
+      // Upload semua file yang sudah dipilih
+      for (let i = 0; i < pendingFiles.value.length; i++) {
+        const f = pendingFiles.value[i]
+        uploadProgress.value = `Mengupload file ${i + 1}/${pendingFiles.value.length}...`
+        await modulesApi.uploadAttachment(route.params.courseId, data.id, f)
+      }
+      router.push(`/courses/${route.params.courseId}`)
     }
   } catch (e) {
     alert(e.response?.data?.message || 'Gagal menyimpan modul. Silakan coba lagi.')
   } finally {
     saving.value = false
+    uploadProgress.value = ''
   }
 }
 
-async function uploadFile(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  fileInput.value.value = '' // reset DULU agar file yang sama bisa dipilih lagi
-  await doUpload(file)
-}
-
-async function onDrop(e) {
-  const file = e.dataTransfer.files?.[0]
-  if (file) await doUpload(file)
-}
-
-async function doUpload(file) {
-  const maxSize = 100 * 1024 * 1024
-  const allowed = ['.pdf','.doc','.docx','.ppt','.pptx','.xls','.xlsx','.zip','.mp4','.mp3']
+function validateFile(file) {
   const ext = '.' + file.name.split('.').pop().toLowerCase()
-
-  if (!allowed.includes(ext)) {
-    uploadError.value = `Format tidak didukung. Gunakan: ${allowed.join(', ')}`
-    return
+  if (!ALLOWED.includes(ext)) {
+    uploadError.value = `Format tidak didukung: ${file.name}. Gunakan: ${ALLOWED.join(', ')}`
+    return false
   }
-  if (file.size > maxSize) {
-    uploadError.value = 'File melebihi batas 100 MB.'
-    return
+  if (file.size > MAX_SIZE) {
+    uploadError.value = `File "${file.name}" melebihi batas 100 MB.`
+    return false
   }
+  return true
+}
 
+function onFileChange(e) {
+  const files = Array.from(e.target.files ?? [])
+  fileInput.value.value = ''
+  handleFiles(files)
+}
+
+function onDrop(e) {
+  isDragging.value = false
+  const files = Array.from(e.dataTransfer.files ?? [])
+  handleFiles(files)
+}
+
+function handleFiles(files) {
   uploadError.value = ''
+  if (!isEdit.value) {
+    // Create mode: tambah ke antrian lokal
+    for (const f of files) {
+      if (validateFile(f)) pendingFiles.value.push(f)
+    }
+    return
+  }
+  // Edit mode: upload langsung satu per satu
+  for (const f of files) {
+    if (validateFile(f)) uploadImmediate(f)
+  }
+}
+
+async function uploadImmediate(file) {
   uploading.value = true
   uploadingName.value = file.name
-
   try {
     const { data } = await modulesApi.uploadAttachment(
       route.params.courseId, route.params.id, file
@@ -196,6 +255,10 @@ async function deleteAttachment(att) {
   attachments.value = attachments.value.filter(a => a.id !== att.id)
 }
 
+function getExt(filename) {
+  return filename.split('.').pop().toLowerCase()
+}
+
 function formatSize(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
@@ -213,10 +276,7 @@ onMounted(async () => {
       isPublished: data.isPublished,
       durationMinutes: data.durationMinutes
     }
-    // Load existing attachments
-    if (data.attachments?.length) {
-      attachments.value = data.attachments
-    }
+    if (data.attachments?.length) attachments.value = data.attachments
   }
 })
 </script>
