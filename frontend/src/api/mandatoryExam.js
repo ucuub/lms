@@ -35,6 +35,9 @@ export const mandatoryExamSession = {
   validateToken: (token) =>
     axios.get(`/api/mandatory-exams/validate-token`, { params: { token } }),
 
+  claimLink: (linkToken, userName) =>
+    axios.post(`/api/mandatory-exams/claim-link`, { userName }, { params: { linkToken } }),
+
   accessByCode: (code, userId, userName) =>
     axios.get(`/api/mandatory-exams/access`, { params: { code, userId, userName } }),
 

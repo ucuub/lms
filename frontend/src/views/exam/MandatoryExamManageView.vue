@@ -177,6 +177,13 @@
       </div>
     </div>
 
+    <!-- AI Generate Modal -->
+    <AiGenerateModal v-if="showAiModal"
+      :model="aiModel"
+      :provider-name="aiProviderName"
+      @close="showAiModal = false"
+      @save="onAiSave" />
+
     <!-- Import from Question Bank Modal -->
     <div v-if="showImport" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
@@ -295,12 +302,16 @@
           <!-- Tab: Soal -->
           <div v-if="activeTab === 'Soal'" class="p-5">
             <!-- Add Question -->
-            <div class="flex gap-2 mb-4">
+            <div class="flex gap-2 mb-4 flex-wrap">
               <button @click="showAddQ = !showAddQ" class="btn-outline btn-sm">
                 {{ showAddQ ? 'Batal' : '+ Tambah Soal' }}
               </button>
               <button @click="openImportModal" class="btn-outline btn-sm text-blue-600 border-blue-300 hover:bg-blue-50">
                 ↓ Import dari Bank Soal
+              </button>
+              <button v-if="isAdmin" @click="showAiModal = true"
+                class="inline-flex items-center gap-1 text-sm px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                ✨ Generate AI
               </button>
             </div>
             <div v-if="showAddQ" class="card p-4 mb-4">
@@ -584,17 +595,17 @@
               </div>
             </div>
 
-            <p class="text-sm text-gray-600 mb-4">
-              Atau generate link manual untuk user tertentu di bawah ini:
+            <p class="text-sm text-gray-600 mb-2">
+              Generate link yang bisa dibagikan ke siapa saja. Penerima link cukup masukkan nama mereka saat membuka link.
             </p>
+            <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+              <b>Perhatian:</b> Setiap link hanya dapat digunakan oleh maksimal <b>5 peserta berbeda</b>. Jika sudah lulus, peserta tidak dapat mengakses link kembali. Jika lebih dari 5 peserta membutuhkan akses, generate link baru.
+            </div>
             <div class="space-y-3 mb-4">
-              <div>
-                <label class="label">User ID *</label>
-                <input v-model="linkUserId" class="input" placeholder="ID user yang akan menerima link" />
-              </div>
               <div>
                 <label class="label">Berlaku selama (menit)</label>
                 <input v-model.number="linkExpiry" type="number" class="input w-32" min="10" max="1440" />
+                <p class="text-xs text-gray-400 mt-1">Maksimal 1440 menit (24 jam)</p>
               </div>
               <button @click="generateLink" :disabled="generatingLink" class="btn-primary btn-sm">
                 {{ generatingLink ? 'Generating...' : 'Generate Link' }}
@@ -624,6 +635,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { mandatoryExamApi } from '@/api/mandatoryExam'
 import { coursesApi } from '@/api/courses'
 import { courseQuestionBankApi } from '@/api/courseQuestionBank'
+import { aiApi } from '@/api/ai'
+import AiGenerateModal from '@/components/AiGenerateModal.vue'
 
 const exams   = ref([])
 const loading = ref(true)
@@ -687,6 +700,12 @@ const grading         = reactive({}) // keyed by answerId: { points, feedback, s
 // Public link
 const generatingCode  = ref(null)
 
+// AI Generate
+const showAiModal = ref(false)
+const aiModel        = ref('Meta-Llama-3.3-70B-Instruct')
+const aiProviderName = ref('DekaLLM')
+const isAdmin     = ref(false)
+
 // Import from question bank
 const showImport        = ref(false)
 const importCourses     = ref([])
@@ -707,7 +726,15 @@ const importAllChecked = computed(() =>
   importFiltered.value.length > 0 && importFiltered.value.every(q => importSelected.value.has(q.id))
 )
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  try {
+    const aiStatus = await aiApi.status()
+    isAdmin.value  = true
+    aiModel.value        = aiStatus.data.model ?? 'Meta-Llama-3.3-70B-Instruct'
+    aiProviderName.value = aiStatus.data.providerName ?? 'DekaLLM'
+  } catch { /* bukan admin atau AI belum dikonfigurasi */ }
+})
 
 async function load() {
   loading.value = true
@@ -957,11 +984,10 @@ async function unassignUser(userId) {
 }
 
 async function generateLink() {
-  if (!linkUserId.value.trim()) return alert('User ID wajib diisi.')
   generatingLink.value = true
   try {
     const { data } = await mandatoryExamApi.generateLink(selected.value.id, {
-      userId: linkUserId.value, expiryMinutes: linkExpiry.value
+      expiryMinutes: linkExpiry.value
     })
     generatedLink.value = data
   } catch (e) {
@@ -1132,6 +1158,27 @@ function copyPublicLink(link) {
   const fullLink = `${link}&userId={USER_ID}&userName={USER_NAME}`
   navigator.clipboard.writeText(fullLink)
     .then(() => alert('Link disalin! Ganti {USER_ID} dan {USER_NAME} dengan data user DWI Mobile.'))
+}
+
+async function onAiSave(generatedQuestions) {
+  for (const q of generatedQuestions) {
+    try {
+      await mandatoryExamApi.addQuestion(selected.value.id, {
+        text:    q.text,
+        type:    q.type,
+        points:  q.points,
+        options: (q.options ?? []).map(o => ({ text: o.text, isCorrect: o.isCorrect })),
+      })
+    } catch (e) {
+      console.error('Gagal simpan soal AI:', e)
+    }
+  }
+  showAiModal.value = false
+  // Reload soal list
+  const { data } = await mandatoryExamApi.getById(selected.value.id)
+  detail.value = data
+  const examInList = exams.value.find(e => e.id === selected.value.id)
+  if (examInList) examInList.questionCount = data.questions.length
 }
 
 async function exportCSV() {

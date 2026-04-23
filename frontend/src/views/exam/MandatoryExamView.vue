@@ -10,6 +10,40 @@
       </div>
     </div>
 
+    <!-- Identify: masukkan nama sebelum mulai (untuk link publik tanpa userId) -->
+    <div v-else-if="state === 'identify'" class="min-h-screen flex items-center justify-center p-6">
+      <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold text-gray-900">Masukkan Nama Anda</h2>
+          <p class="text-gray-500 text-sm mt-1">Nama akan digunakan untuk mencatat hasil ujian.</p>
+          <div class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Link ini hanya dapat digunakan oleh <b>5 peserta</b>. Jika sudah lulus, link tidak bisa diakses kembali.
+          </div>
+        </div>
+        <div class="space-y-4">
+          <input
+            v-model="guestName"
+            type="text"
+            placeholder="Nama lengkap Anda..."
+            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @keyup.enter="startWithName"
+          />
+          <p v-if="identifyError" class="text-sm text-red-500">{{ identifyError }}</p>
+          <button
+            @click="startWithName"
+            :disabled="!guestName.trim()"
+            class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            Mulai Ujian
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Error -->
     <div v-else-if="state === 'error'" class="min-h-screen flex items-center justify-center p-6">
       <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
@@ -174,17 +208,50 @@ const route  = useRoute()
 // token bisa dari URL (?token=) atau dari response accessByCode (?code=)
 const examToken = ref(route.query.token || '')
 
-const state      = ref('loading') // loading | error | exam | result
+const state      = ref('loading') // loading | identify | error | exam | result
 const errorMsg   = ref('')
-const session    = ref(null)      // ValidateMandatoryTokenResponse / PublicAccessExamResponse
-const result     = ref(null)      // MandatoryExamResultResponse
+const session    = ref(null)
+const result     = ref(null)
 const submitting = ref(false)
+
+// public link flow
+const guestName      = ref('')
+const identifyError  = ref('')
+const linkToken      = ref('')   // the original link token (for claim-link)
+const claimInfo      = ref(null) // { maxUsage, currentUsage } from claim response
 
 // answers keyed by questionId
 const answers  = reactive({})
 const timeLeft = ref(0)
 const currentIdx = ref(0)
 let   timer    = null
+
+async function startWithName() {
+  if (!guestName.value.trim()) return
+  identifyError.value = ''
+  state.value = 'loading'
+  try {
+    // 1. Claim the public link → get personal token
+    const { data: claim } = await mandatoryExamSession.claimLink(linkToken.value, guestName.value.trim())
+    claimInfo.value = { maxUsage: claim.maxUsage, currentUsage: claim.currentUsage }
+    // 2. Store personal token in localStorage so returning user can resume
+    localStorage.setItem(`exam_personal_${linkToken.value}`, claim.personalToken)
+    // 3. Validate personal token → start exam
+    examToken.value = claim.personalToken
+    const { data } = await mandatoryExamSession.validateToken(claim.personalToken)
+    await initExam(data)
+  } catch (e) {
+    const code = e?.response?.data?.code
+    const msg  = e?.response?.data?.message ?? 'Terjadi kesalahan. Coba lagi.'
+    if (code === 'LIMIT_REACHED') {
+      errorMsg.value = msg
+      state.value = 'error'
+    } else {
+      identifyError.value = msg
+      state.value = 'identify'
+    }
+  }
+}
 
 async function startExam() {
   const tokenParam    = route.query.token
@@ -206,45 +273,39 @@ async function startExam() {
       const res = await mandatoryExamSession.accessByCode(codeParam, userIdParam, userNameParam)
       data = res.data
       examToken.value = data.examToken
+      await initExam(data)
+      return
 
     } else if (tokenParam) {
-      examToken.value = tokenParam
-      const res = await mandatoryExamSession.validateToken(tokenParam)
-      data = res.data
+      linkToken.value = tokenParam
+      // Cek localStorage — mungkin user ini sudah pernah claim link ini
+      const storedPersonal = localStorage.getItem(`exam_personal_${tokenParam}`)
+      if (storedPersonal) {
+        try {
+          examToken.value = storedPersonal
+          const res = await mandatoryExamSession.validateToken(storedPersonal)
+          await initExam(res.data)
+          return
+        } catch (e) {
+          // Personal token expired/invalid → clear and show identify form
+          const code = e?.response?.data?.code
+          if (code === 'ALREADY_PASSED') {
+            errorMsg.value = 'Anda sudah lulus ujian ini.'
+            state.value = 'error'
+            return
+          }
+          localStorage.removeItem(`exam_personal_${tokenParam}`)
+        }
+      }
+      // Belum punya personal token → tampilkan form nama
+      state.value = 'identify'
+      return
 
     } else {
       errorMsg.value = 'Link ujian tidak valid.'
       state.value    = 'error'
       return
     }
-
-    session.value = data
-
-    // Reset & init answer slots
-    Object.keys(answers).forEach(k => delete answers[k])
-    for (const q of data.questions) {
-      answers[q.id] = { selectedOptionId: null, essayAnswer: '' }
-    }
-
-    // Timer
-    if (data.timeLimitMinutes) {
-      const elapsed = Math.floor((Date.now() - new Date(data.startedAt).getTime()) / 1000)
-      timeLeft.value = Math.max(0, data.timeLimitMinutes * 60 - elapsed)
-      if (timeLeft.value > 0) {
-        timer = setInterval(() => {
-          timeLeft.value--
-          if (timeLeft.value <= 0) {
-            clearInterval(timer)
-            submitExam()
-          }
-        }, 1000)
-      } else {
-        submitExam()
-        return
-      }
-    }
-
-    state.value = 'exam'
   } catch (e) {
     const msg = e?.response?.data?.message ?? e.message
     errorMsg.value = msg || 'Token tidak valid atau sudah expired.'
@@ -252,10 +313,48 @@ async function startExam() {
   }
 }
 
+async function initExam(data) {
+  session.value = data
+
+  Object.keys(answers).forEach(k => delete answers[k])
+  for (const q of data.questions) {
+    answers[q.id] = { selectedOptionId: null, essayAnswer: '' }
+  }
+
+  if (data.timeLimitMinutes) {
+    const elapsed = Math.floor((Date.now() - new Date(data.startedAt).getTime()) / 1000)
+    timeLeft.value = Math.max(0, data.timeLimitMinutes * 60 - elapsed)
+    if (timeLeft.value > 0) {
+      timer = setInterval(() => {
+        timeLeft.value--
+        if (timeLeft.value <= 0) {
+          clearInterval(timer)
+          submitExam()
+        }
+      }, 1000)
+    } else {
+      submitExam()
+      return
+    }
+  }
+
+  state.value = 'exam'
+}
+
 async function retryExam() {
   if (timer) clearInterval(timer)
   result.value  = null
   session.value = null
+  // For retry, use stored personal token directly
+  const storedPersonal = localStorage.getItem(`exam_personal_${linkToken.value}`)
+  if (storedPersonal) {
+    try {
+      examToken.value = storedPersonal
+      const { data } = await mandatoryExamSession.validateToken(storedPersonal)
+      await initExam(data)
+      return
+    } catch { /* fall through to startExam */ }
+  }
   await startExam()
 }
 

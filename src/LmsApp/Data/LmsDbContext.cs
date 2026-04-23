@@ -99,6 +99,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     {
         base.OnModelCreating(modelBuilder);
 
+        // Semua tabel LMS dibuat di schema "lms" agar tidak bercampur dengan schema lain di WCI_APP
+        if (Database.ProviderName?.Contains("SqlServer") == true)
+            modelBuilder.HasDefaultSchema("lms");
+
         // AppUser
         modelBuilder.Entity<AppUser>(e =>
         {
@@ -649,5 +653,21 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .HasForeignKey(s => s.ExamId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // ── SQL Server: disable multiple cascade paths ────────────────────────
+        // SQL Server tidak mengizinkan multiple cascade paths ke tabel yang sama.
+        // Override semua Cascade dan SetNull ke NoAction agar CreateTables() berhasil.
+        if (Database.ProviderName?.Contains("SqlServer") == true)
+        {
+            foreach (var fk in modelBuilder.Model.GetEntityTypes()
+                .SelectMany(e => e.GetForeignKeys()))
+            {
+                if (fk.DeleteBehavior == DeleteBehavior.Cascade ||
+                    fk.DeleteBehavior == DeleteBehavior.SetNull)
+                {
+                    fk.DeleteBehavior = DeleteBehavior.NoAction;
+                }
+            }
+        }
     }
 }

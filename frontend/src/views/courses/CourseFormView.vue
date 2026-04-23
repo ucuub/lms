@@ -279,19 +279,17 @@ async function doUpload(files) {
 
   uploadQueue.value = queue
 
-  // Upload semua file yang valid secara paralel
-  await Promise.all(
-    queue.filter(q => q.status === 'uploading').map(async (q) => {
-      try {
-        const { data } = await resourcesApi.upload(route.params.id, q.file)
-        resources.value.push(data)
-        q.status = 'done'
-      } catch (e) {
-        q.status = 'error'
-        q.error = e.response?.data?.message || 'Gagal upload'
-      }
-    })
-  )
+  // Upload file satu per satu (sequential) agar tidak timeout saat banyak file
+  for (const q of queue.filter(q => q.status === 'uploading')) {
+    try {
+      const { data } = await resourcesApi.upload(route.params.id, q.file)
+      resources.value.push(data)
+      q.status = 'done'
+    } catch (e) {
+      q.status = 'error'
+      q.error = e.response?.data?.message || 'Gagal upload'
+    }
+  }
 
   uploading.value = false
 

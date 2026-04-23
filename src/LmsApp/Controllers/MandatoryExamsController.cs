@@ -48,7 +48,8 @@ public class MandatoryExamsController(
             e.Id, e.Title, e.Description, e.TimeLimitMinutes,
             e.MaxAttempts, e.PassScore, e.IsActive,
             e.Questions.Count, e.Assignments.Count, e.CreatedAt,
-            e.PublicAccessCode, e.PublicAccessCode == null ? null : BuildPublicLink(e.PublicAccessCode))));
+            e.PublicAccessCode, e.PublicAccessCode == null ? null : BuildPublicLink(e.PublicAccessCode),
+            e.WebhookUrl)));
     }
 
     // GET /api/mandatory-exams/{id}
@@ -86,7 +87,7 @@ public class MandatoryExamsController(
         return CreatedAtAction(nameof(GetById), new { id = exam.Id },
             new MandatoryExamSummaryResponse(exam.Id, exam.Title, exam.Description,
                 exam.TimeLimitMinutes, exam.MaxAttempts, exam.PassScore, exam.IsActive,
-                0, 0, exam.CreatedAt, null, null));
+                0, 0, exam.CreatedAt, null, null, null));
     }
 
     // PUT /api/mandatory-exams/{id}
@@ -162,7 +163,11 @@ public class MandatoryExamsController(
         if (!Enum.TryParse<QuestionType>(req.Type, true, out var qType))
             return BadRequest(new { message = "Tipe soal tidak valid." });
 
-        var order = await db.MandatoryExamQuestions.CountAsync(q => q.ExamId == id);
+        var maxOrder = await db.MandatoryExamQuestions
+            .Where(q => q.ExamId == id)
+            .Select(q => (int?)q.Order)
+            .MaxAsync();
+        var order = (maxOrder ?? -1) + 1;
         var q = new MandatoryExamQuestion
         {
             ExamId  = id,
@@ -325,30 +330,105 @@ public class MandatoryExamsController(
         if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
         if (!exam.IsActive) return BadRequest(new { message = "Exam tidak aktif." });
 
-        var assignment = await db.MandatoryExamAssignments
-            .FirstOrDefaultAsync(a => a.ExamId == id && a.UserId == req.UserId);
-        if (assignment == null)
-            return BadRequest(new { message = "User belum di-assign ke exam ini." });
+        // Generate token dulu → dapat JTI → simpan session sekali (tidak ada double-save)
+        var (token, expiresAt, jti) = tokenService.GenerateLinkToken(id, req.ExpiryMinutes);
 
-        var (token, expiresAt, jti) = tokenService.GenerateToken(req.UserId, id, req.ExpiryMinutes);
+        var session = new MandatoryExamSession
+        {
+            ExamId            = id,
+            UserId            = "",
+            TokenJti          = jti,
+            GeneratedBy       = UserId,
+            ExpiresAt         = expiresAt,
+            IsLinkToken       = true,
+            MaxUsageCount     = 5,
+            CurrentUsageCount = 0,
+        };
+        db.MandatoryExamSessions.Add(session);
+        await db.SaveChangesAsync();
 
         var config   = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
         var baseUrl  = (config["MandatoryExam:FrontendBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var deepLink = $"{baseUrl}/exam/start?token={Uri.EscapeDataString(token)}";
 
-        // Simpan session untuk audit trail + kemampuan revoke
-        var session = new MandatoryExamSession
+        return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt, session.Id));
+    }
+
+    // POST /api/mandatory-exams/claim-link?linkToken=XYZ
+    // Dipanggil saat user baru pertama kali klik link publik dan isi nama
+    [HttpPost("claim-link")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ClaimLinkResponse>> ClaimLink([FromQuery] string linkToken, [FromBody] ClaimLinkRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(linkToken))
+            return BadRequest(new { message = "Link token diperlukan." });
+
+        int linkExamId; string linkJti;
+        try
         {
-            ExamId      = id,
-            UserId      = req.UserId,
-            TokenJti    = jti,
-            GeneratedBy = UserId,
-            ExpiresAt   = expiresAt,
+            var parsed = tokenService.ValidateLinkToken(linkToken);
+            linkExamId = parsed.ExamId;
+            linkJti    = parsed.Jti;
+        }
+        catch (SecurityTokenExpiredException)
+              { return Unauthorized(new { message = "Link sudah expired." }); }
+        catch (Exception ex)
+              { return Unauthorized(new { message = $"Link tidak valid: {ex.Message}" }); }
+
+        var linkSession = await db.MandatoryExamSessions
+            .FirstOrDefaultAsync(s => s.TokenJti == linkJti && s.IsLinkToken);
+        if (linkSession == null)
+            return Unauthorized(new { message = "Link tidak dikenal." });
+        if (linkSession.IsRevoked)
+            return Unauthorized(new { message = "Link sudah di-nonaktifkan." });
+        if (linkSession.CurrentUsageCount >= linkSession.MaxUsageCount)
+            return BadRequest(new { message = $"Link ini sudah mencapai batas maksimal {linkSession.MaxUsageCount} peserta.", code = "LIMIT_REACHED" });
+
+        var exam = await db.MandatoryExams.FindAsync(linkExamId);
+        if (exam == null || !exam.IsActive)
+            return NotFound(new { message = "Exam tidak ditemukan atau tidak aktif." });
+
+        var resolvedName = string.IsNullOrWhiteSpace(req.UserName) ? "Peserta" : req.UserName.Trim();
+        var guestUserId  = Guid.NewGuid().ToString();
+
+        // Buat assignment untuk user baru ini
+        var assignment = new MandatoryExamAssignment
+        {
+            ExamId     = linkExamId,
+            UserId     = guestUserId,
+            UserName   = resolvedName,
+            AssignedAt = DateTime.UtcNow,
         };
-        db.MandatoryExamSessions.Add(session);
+        db.MandatoryExamAssignments.Add(assignment);
+
+        // Increment usage count
+        linkSession.CurrentUsageCount++;
+        if (linkSession.UsedAt == null) linkSession.UsedAt = DateTime.UtcNow;
+
         await db.SaveChangesAsync();
 
-        return Ok(new GenerateMandatoryLinkResponse(token, deepLink, expiresAt, session.Id));
+        // Generate personal JWT untuk user ini (berlaku sama dengan sisa waktu link)
+        var remainingMinutes = Math.Max(10, (int)(linkSession.ExpiresAt - DateTime.UtcNow).TotalMinutes);
+        var (personalToken, personalExpiry, personalJti) = tokenService.GenerateToken(guestUserId, linkExamId, remainingMinutes);
+
+        // Simpan session record untuk personal token agar ValidateToken bisa verify
+        var personalSession = new MandatoryExamSession
+        {
+            ExamId          = linkExamId,
+            UserId          = guestUserId,
+            TokenJti        = personalJti,
+            GeneratedBy     = "system",
+            ExpiresAt       = personalExpiry,
+            IsLinkToken     = false,
+            ParentSessionId = linkSession.Id,
+        };
+        db.MandatoryExamSessions.Add(personalSession);
+        await db.SaveChangesAsync();
+
+        return Ok(new ClaimLinkResponse(
+            personalToken, personalExpiry, guestUserId, linkExamId,
+            linkSession.MaxUsageCount, linkSession.CurrentUsageCount
+        ));
     }
 
     // ── Public Access Code ────────────────────────────────────────────────────
@@ -636,7 +716,8 @@ public class MandatoryExamsController(
 public class MandatoryExamSessionController(
     LmsDbContext db,
     MandatoryExamTokenService tokenService,
-    IHttpClientFactory httpClientFactory) : ControllerBase
+    IHttpClientFactory httpClientFactory,
+    ILogger<MandatoryExamSessionController> logger) : ControllerBase
 {
     // ── Access by Public Code → start or resume attempt ──────────────────────
     //
@@ -774,12 +855,17 @@ public class MandatoryExamSessionController(
             await db.SaveChangesAsync();
         }
 
-        // 2. Validasi assignment
+        // 2. Validasi assignment (dibuat oleh ClaimLink untuk public link, atau pre-assigned)
         var assignment = await db.MandatoryExamAssignments
             .Include(a => a.Attempts)
             .FirstOrDefaultAsync(a => a.ExamId == examId && a.UserId == userId);
         if (assignment == null)
-            return StatusCode(403, new { message = "Anda tidak memiliki akses ke exam ini." });
+            return StatusCode(403, new { message = "Akses tidak diizinkan. Gunakan link yang valid." });
+
+        // Cek apakah sudah lulus — jika ya, tidak bisa mengulang
+        var alreadyPassed = assignment.Attempts.Any(a => a.SubmittedAt != null && a.IsPassed == true);
+        if (alreadyPassed)
+            return BadRequest(new { message = "Anda sudah lulus ujian ini. Tidak perlu mengulang.", code = "ALREADY_PASSED" });
 
         // 2. Load exam
         var exam = await db.MandatoryExams
@@ -975,9 +1061,10 @@ public class MandatoryExamSessionController(
 
             await client.PostAsync(exam.WebhookUrl, content);
         }
-        catch
+        catch (Exception ex)
         {
-            // Webhook gagal — tidak mempengaruhi flow user, log saja
+            logger.LogWarning("[Webhook] Gagal kirim ke {Url} untuk exam {ExamId}: {Message}",
+                exam.WebhookUrl, exam.Id, ex.Message);
         }
     }
 

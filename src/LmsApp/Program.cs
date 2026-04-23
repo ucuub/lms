@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
 
@@ -137,7 +139,43 @@ builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
 builder.Services.AddSingleton<MandatoryExamTokenService>();
+builder.Services.AddScoped<AiQuestionService>();
+builder.Services.AddScoped<MaterialContextService>();
 builder.Services.AddHttpClient(); // untuk webhook DWI Mobile
+
+// Client khusus DekaLLM — pakai SocketsHttpHandler dengan managed TLS
+builder.Services.AddHttpClient("dekallm", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(300);
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+    {
+        RemoteCertificateValidationCallback = (_, _, _, _) => true,
+        EnabledSslProtocols =
+            System.Security.Authentication.SslProtocols.Tls12 |
+            System.Security.Authentication.SslProtocols.Tls13,
+    },
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+});
+
+// Client lama untuk OpenAI (dipertahankan jika sewaktu-waktu dipakai)
+builder.Services.AddHttpClient("openai", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(180);
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // Pakai .NET managed TLS stack (bukan Windows SChannel)
+    // agar tidak bergantung pada cipher/protocol Windows
+    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+    {
+        RemoteCertificateValidationCallback = (_, _, _, _) => true,
+        EnabledSslProtocols =
+            System.Security.Authentication.SslProtocols.Tls12 |
+            System.Security.Authentication.SslProtocols.Tls13,
+    },
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+});
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -242,9 +280,46 @@ app.MapControllers();
 
     if (isSqlServer)
     {
-        // SQL Server: EnsureCreated buat semua tabel dari EF model jika DB baru.
-        // Untuk DB yang sudah ada, schema sudah tersedia — skip recreate.
-        db.Database.EnsureCreated();
+        // SQL Server: database WCI_APP sudah ada (shared DB), jadi EnsureCreated() tidak buat tabel.
+        // Cek apakah tabel LMS di schema "lms" sudah ada — jika belum, buat semua tabel.
+        var lmsTablesExist = false;
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'lms' AND TABLE_NAME = 'Courses'");
+            lmsTablesExist = db.Courses.Any();
+        }
+        catch { /* tabel belum ada */ }
+
+        if (!lmsTablesExist)
+        {
+            var creator = db.GetService<IRelationalDatabaseCreator>() as RelationalDatabaseCreator;
+            if (creator != null)
+            {
+                try { creator.CreateTables(); }
+                catch (Exception ex)
+                {
+                    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+                    logger.LogWarning("CreateTables: {Message}", ex.Message);
+                }
+            }
+        }
+        else
+        {
+            // Add new columns to existing tables (safe ALTER TABLE IF NOT EXISTS)
+            var alterSqls = new[]
+            {
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='IsLinkToken') ALTER TABLE lms.MandatoryExamSessions ADD IsLinkToken BIT NOT NULL DEFAULT 0",
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='ParentSessionId') ALTER TABLE lms.MandatoryExamSessions ADD ParentSessionId INT NULL",
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='MaxUsageCount') ALTER TABLE lms.MandatoryExamSessions ADD MaxUsageCount INT NOT NULL DEFAULT 5",
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='CurrentUsageCount') ALTER TABLE lms.MandatoryExamSessions ADD CurrentUsageCount INT NOT NULL DEFAULT 0",
+            };
+            foreach (var sql in alterSqls)
+            {
+                try { await db.Database.ExecuteSqlRawAsync(sql); }
+                catch { /* ignore if fails */ }
+            }
+        }
     }
     else if (isSqlite)
     {
@@ -268,6 +343,8 @@ app.MapControllers();
                 _ = db.CourseQuestionBanks.Any();
                 // Deteksi kolom PublicAccessCode di MandatoryExams
                 _ = db.MandatoryExams.Any(e => e.PublicAccessCode == null);
+                // Deteksi kolom IsLinkToken di MandatoryExamSessions
+                _ = db.MandatoryExamSessions.Any(s => s.IsLinkToken == false);
             }
             catch
             {

@@ -25,7 +25,7 @@ export const resourcesApi = {
     if (meta.title) form.append('title', meta.title)
     if (meta.description) form.append('description', meta.description)
     if (meta.order != null) form.append('order', meta.order)
-    return api.post(`/courses/${courseId}/resources`, form)
+    return api.post(`/courses/${courseId}/resources`, form, { timeout: 60000 })
   },
   update: (courseId, id, data) => api.put(`/courses/${courseId}/resources/${id}`, data),
   delete: (courseId, id) => api.delete(`/courses/${courseId}/resources/${id}`),

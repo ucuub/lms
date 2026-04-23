@@ -39,7 +39,7 @@ public record QuestionOrderItem(int QuestionId, int Order);
 
 public record AssignMandatoryExamRequest(string UserId, string UserName);
 
-public record GenerateMandatoryLinkRequest(string UserId, int ExpiryMinutes = 60);
+public record GenerateMandatoryLinkRequest(int ExpiryMinutes = 60);
 
 // ── Session Requests ──────────────────────────────────────────────────────────
 
@@ -65,7 +65,8 @@ public record MandatoryExamSummaryResponse(
     int AssignmentCount,
     DateTime CreatedAt,
     string? PublicAccessCode,
-    string? PublicLink
+    string? PublicLink,
+    string? WebhookUrl
 );
 
 public record MandatoryExamDetailResponse(
@@ -105,6 +106,17 @@ public record MandatoryAssignmentResponse(
 );
 
 public record GenerateMandatoryLinkResponse(string Token, string DeepLink, DateTime ExpiresAt, int SessionId);
+
+public record ClaimLinkRequest(string UserName);
+
+public record ClaimLinkResponse(
+    string PersonalToken,
+    DateTime ExpiresAt,
+    string UserId,
+    int ExamId,
+    int MaxUsage,
+    int CurrentUsage
+);
 
 public record MandatoryExamSessionResponse(
     int Id,

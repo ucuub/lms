@@ -9,7 +9,13 @@
         <h1 class="text-2xl font-bold mt-1">Bank Soal Kursus</h1>
         <p v-if="course" class="text-gray-500 text-sm">{{ course.title }}</p>
       </div>
-      <button @click="openAddForm" class="btn-primary">+ Tambah Soal</button>
+      <div class="flex gap-2">
+        <button v-if="isAdmin" @click="showAiModal = true"
+          class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
+          ✨ Generate AI
+        </button>
+        <button @click="openAddForm" class="btn-primary">+ Tambah Soal</button>
+      </div>
     </div>
 
     <!-- Filter by module -->
@@ -32,7 +38,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-3 gap-4">
+    <div class="grid grid-cols-4 gap-4">
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold text-blue-600">{{ questions.length }}</div>
         <div class="text-sm text-gray-500">Total Soal</div>
@@ -40,6 +46,10 @@
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold text-green-600">{{ mcCount }}</div>
         <div class="text-sm text-gray-500">Pilihan Ganda</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold text-yellow-600">{{ tfCount }}</div>
+        <div class="text-sm text-gray-500">Benar/Salah</div>
       </div>
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold text-purple-600">{{ essayCount }}</div>
@@ -80,8 +90,8 @@
             </div>
             <p class="text-gray-800 font-medium">{{ q.text }}</p>
 
-            <!-- MC options preview -->
-            <div v-if="q.type === 'MultipleChoice'" class="mt-3 space-y-1">
+            <!-- MC / TrueFalse options preview -->
+            <div v-if="q.type === 'MultipleChoice' || q.type === 'TrueFalse'" class="mt-3 space-y-1">
               <div
                 v-for="opt in q.options"
                 :key="opt.id"
@@ -125,9 +135,10 @@
           <!-- Tipe soal -->
           <div>
             <label class="label">Tipe Soal</label>
-            <select v-model="form.type" class="input">
+            <select v-model="form.type" @change="onTypeChange" class="input">
               <option value="0">Pilihan Ganda</option>
-              <option value="1">Essay</option>
+              <option value="1">Benar/Salah</option>
+              <option value="2">Essay</option>
             </select>
           </div>
 
@@ -143,8 +154,8 @@
             <input v-model.number="form.points" type="number" min="1" max="100" class="input w-32" />
           </div>
 
-          <!-- Options (MC only) -->
-          <div v-if="Number(form.type) === 0">
+          <!-- Options (MC & TrueFalse) -->
+          <div v-if="Number(form.type) === 0 || Number(form.type) === 1">
             <label class="label">Pilihan Jawaban</label>
             <div class="space-y-2">
               <div v-for="(opt, i) in form.options" :key="opt._key" class="flex items-center gap-2">
@@ -156,11 +167,14 @@
                   class="mt-1"
                   title="Tandai sebagai jawaban benar"
                 />
-                <input v-model="opt.text" class="input flex-1" :placeholder="`Pilihan ${i + 1}`" />
-                <button @click="removeOption(i)" class="text-red-500 hover:text-red-700 text-lg leading-none" title="Hapus pilihan">×</button>
+                <input v-model="opt.text" class="input flex-1" :placeholder="`Pilihan ${i + 1}`"
+                  :readonly="Number(form.type) === 1" :class="Number(form.type) === 1 ? 'bg-gray-50' : ''" />
+                <button v-if="Number(form.type) === 0" @click="removeOption(i)"
+                  class="text-red-500 hover:text-red-700 text-lg leading-none" title="Hapus pilihan">×</button>
               </div>
             </div>
-            <button @click="addOption" class="text-sm text-blue-600 hover:underline mt-2">+ Tambah Pilihan</button>
+            <button v-if="Number(form.type) === 0" @click="addOption"
+              class="text-sm text-blue-600 hover:underline mt-2">+ Tambah Pilihan</button>
             <p class="text-xs text-gray-400 mt-1">Klik radio button untuk menandai jawaban benar.</p>
           </div>
 
@@ -181,6 +195,14 @@
         </div>
       </div>
     </div>
+
+    <!-- AI Generate Modal -->
+    <AiGenerateModal v-if="showAiModal"
+      :model="aiModel"
+      :provider-name="aiProviderName"
+      :course-id="courseId"
+      @close="showAiModal = false"
+      @save="onAiSave" />
 
     <!-- Delete confirm -->
     <div v-if="deleteTarget" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
@@ -204,6 +226,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { courseQuestionBankApi } from '@/api/courseQuestionBank'
 import { coursesApi, modulesApi } from '@/api/courses'
+import { aiApi } from '@/api/ai'
+import AiGenerateModal from '@/components/AiGenerateModal.vue'
 
 const route = useRoute()
 const courseId = Number(route.params.courseId)
@@ -214,6 +238,12 @@ const questions  = ref([])
 const loading    = ref(true)
 const loadError  = ref('')
 const filterModuleId = ref(null)  // null = all, 0 = no module, N = specific module
+
+// AI Generate
+const showAiModal = ref(false)
+const aiModel        = ref('Meta-Llama-3.3-70B-Instruct')
+const aiProviderName = ref('DekaLLM')
+const isAdmin     = ref(false)
 
 let _optKey = 0
 const newOptKey = () => ++_optKey
@@ -238,6 +268,7 @@ const filteredQuestions = computed(() => {
 })
 
 const mcCount    = computed(() => questions.value.filter(q => q.type === 'MultipleChoice').length)
+const tfCount    = computed(() => questions.value.filter(q => q.type === 'TrueFalse').length)
 const essayCount = computed(() => questions.value.filter(q => q.type === 'Essay').length)
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -252,6 +283,14 @@ onMounted(async () => {
     course.value    = courseRes.data
     modules.value   = modulesRes.data ?? []
     questions.value = questionsRes.data ?? []
+
+    // Cek status AI (admin only)
+    try {
+      const aiStatus = await aiApi.status()
+      isAdmin.value  = true
+      aiModel.value        = aiStatus.data.model ?? 'Meta-Llama-3.3-70B-Instruct'
+      aiProviderName.value = aiStatus.data.providerName ?? 'DekaLLM'
+    } catch { /* bukan admin atau AI tidak dikonfigurasi */ }
   } catch (e) {
     loadError.value = e.response?.data?.message ?? 'Gagal memuat data. Coba muat ulang halaman.'
   } finally {
@@ -279,7 +318,7 @@ function openEdit(q) {
   editingId.value = q.id
   form.value = {
     moduleId:    q.moduleId ?? null,
-    type:        q.type === 'Essay' ? '1' : '0',
+    type:        q.type === 'Essay' ? '2' : q.type === 'TrueFalse' ? '1' : '0',
     text:        q.text,
     points:      q.points,
     explanation: q.explanation ?? '',
@@ -337,7 +376,7 @@ async function submitForm() {
       type:        typeNum,
       points:      form.value.points,
       explanation: form.value.explanation?.trim() || null,
-      options:     typeNum === 0 ? form.value.options : [],
+      options:     (typeNum === 0 || typeNum === 1) ? form.value.options : [],
     }
 
     if (editingId.value) {
@@ -376,13 +415,53 @@ async function doDelete() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+async function onAiSave(generatedQuestions) {
+  for (const q of generatedQuestions) {
+    try {
+      const typeMap = { MultipleChoice: 0, TrueFalse: 1, Essay: 2 }
+      const payload = {
+        moduleId:    null,
+        text:        q.text,
+        type:        typeMap[q.type] ?? 0,
+        points:      q.points,
+        explanation: q.explanation || null,
+        options:     (q.options ?? []).map(o => ({ text: o.text, isCorrect: o.isCorrect })),
+      }
+      const res = await courseQuestionBankApi.create(courseId, payload)
+      questions.value.unshift(res.data)
+    } catch (e) {
+      console.error('Gagal simpan soal AI:', e)
+    }
+  }
+  showAiModal.value = false
+}
+
+function onTypeChange() {
+  const t = Number(form.value.type)
+  if (t === 1) {
+    form.value.options = [
+      { _key: newOptKey(), text: 'Benar', isCorrect: true },
+      { _key: newOptKey(), text: 'Salah', isCorrect: false },
+    ]
+  } else if (t === 0) {
+    form.value.options = [
+      { _key: newOptKey(), text: '', isCorrect: true },
+      { _key: newOptKey(), text: '', isCorrect: false },
+    ]
+  } else {
+    form.value.options = []
+  }
+}
+
 function typeLabel(type) {
-  return type === 'MultipleChoice' ? 'Pilihan Ganda' : 'Essay'
+  if (type === 'MultipleChoice') return 'Pilihan Ganda'
+  if (type === 'TrueFalse') return 'Benar/Salah'
+  return 'Essay'
 }
 
 function typeClass(type) {
-  return type === 'MultipleChoice'
-    ? 'bg-blue-100 text-blue-700'
-    : 'bg-purple-100 text-purple-700'
+  if (type === 'MultipleChoice') return 'bg-blue-100 text-blue-700'
+  if (type === 'TrueFalse') return 'bg-yellow-100 text-yellow-700'
+  return 'bg-purple-100 text-purple-700'
 }
 </script>

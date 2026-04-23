@@ -108,6 +108,10 @@ public class MandatoryExamSession
     public DateTime ExpiresAt { get; set; }
     public DateTime? UsedAt { get; set; }   // null = belum pernah dipakai
     public bool IsRevoked { get; set; } = false;
+    public bool IsLinkToken { get; set; } = false;   // true = public link token, false = personal token
+    public int? ParentSessionId { get; set; }          // for personal tokens: ref to the link session
+    public int MaxUsageCount { get; set; } = 5;
+    public int CurrentUsageCount { get; set; } = 0;
 
     public MandatoryExam Exam { get; set; } = null!;
 }
