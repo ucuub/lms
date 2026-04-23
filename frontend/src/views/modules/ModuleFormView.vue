@@ -41,10 +41,15 @@
 
         <div class="flex gap-3">
           <button type="submit" :disabled="saving" class="btn-primary">
-            {{ saving ? 'Menyimpan...' : 'Simpan' }}
+            {{ saving ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan & Lanjut') }}
           </button>
           <button type="button" @click="$router.back()" class="btn-outline">Batal</button>
         </div>
+
+        <!-- Info: lampiran bisa ditambah setelah modul disimpan (create mode only) -->
+        <p v-if="!isEdit" class="text-xs text-gray-400 mt-1">
+          Setelah disimpan, kamu bisa menambahkan lampiran file ke modul ini.
+        </p>
       </form>
     </div>
 
@@ -129,10 +134,12 @@ async function save() {
   try {
     if (isEdit.value) {
       await modulesApi.update(route.params.courseId, route.params.id, form.value)
+      router.push(`/courses/${route.params.courseId}`)
     } else {
-      await modulesApi.create(route.params.courseId, form.value)
+      // Setelah create, redirect ke edit page agar user langsung bisa tambah lampiran
+      const { data } = await modulesApi.create(route.params.courseId, form.value)
+      router.push(`/courses/${route.params.courseId}/modules/${data.id}/edit`)
     }
-    router.push(`/courses/${route.params.courseId}`)
   } catch (e) {
     alert(e.response?.data?.message || 'Gagal menyimpan modul. Silakan coba lagi.')
   } finally {

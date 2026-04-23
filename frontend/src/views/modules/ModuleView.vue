@@ -41,11 +41,23 @@
         </div>
         <div v-if="module.content" class="prose max-w-none" v-html="module.content"></div>
         <div v-if="module.attachments?.length">
-          <h3 class="font-medium mb-2">Lampiran</h3>
+          <h3 class="font-medium mb-3">Lampiran</h3>
           <div class="space-y-2">
-            <a v-for="att in module.attachments" :key="att.id" :href="att.fileUrl" target="_blank"
-              class="flex items-center gap-2 p-2 rounded border border-gray-200 hover:bg-gray-50 text-sm text-blue-600 hover:underline">
-              📎 {{ att.fileName }}
+            <a v-for="att in module.attachments" :key="att.id"
+              :href="att.fileUrl" target="_blank" rel="noopener"
+              class="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-blue-300 transition group">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                  {{ att.fileType }}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">{{ att.fileName }}</p>
+                  <p class="text-xs text-gray-400">{{ formatSize(att.fileSize) }}</p>
+                </div>
+              </div>
+              <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-500 shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
             </a>
           </div>
         </div>
@@ -64,6 +76,13 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const auth = useAuthStore()
 const module = ref(null)
+
+function formatSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${bytes} B`
+}
+
 onMounted(async () => {
   try {
     const { data } = await modulesApi.getById(route.params.courseId, route.params.id)
