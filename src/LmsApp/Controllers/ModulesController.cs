@@ -198,6 +198,8 @@ public class ModulesController(
     // POST /api/courses/{courseId}/modules/{id}/attachments
     [HttpPost("{id:int}/attachments")]
     [Authorize(Roles = "teacher,admin")]
+    [RequestSizeLimit(100 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
     public async Task<IActionResult> UploadAttachment(int courseId, int id, IFormFile file)
     {
         if (!await IsTeacherOrAdmin(courseId)) return Forbid();
@@ -205,8 +207,13 @@ public class ModulesController(
         var module = await db.CourseModules.FindAsync(id);
         if (module == null || module.CourseId != courseId) return NotFound();
 
-        if (!fileService.IsValidFile(file, [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".zip", ".mp4", ".mp3"], 100 * 1024 * 1024))
-            return BadRequest(new { message = "File tidak valid atau melebihi batas ukuran." });
+        string[] allowed = [
+            ".pdf", ".doc", ".docx", ".ppt", ".pptx",
+            ".xls", ".xlsx", ".zip", ".mp4", ".mp3",
+            ".jpg", ".jpeg", ".png", ".gif", ".webp"
+        ];
+        if (!fileService.IsValidFile(file, allowed, 100 * 1024 * 1024))
+            return BadRequest(new { message = "File tidak valid atau melebihi batas ukuran 100 MB." });
 
         var url = await fileService.UploadAsync(file, "modules");
         var attachment = new ModuleAttachment

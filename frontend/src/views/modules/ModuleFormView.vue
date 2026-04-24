@@ -80,7 +80,7 @@
         </svg>
         <p class="text-sm text-gray-500">Klik atau drag & drop file ke sini</p>
         <input ref="fileInput" type="file" class="hidden"
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4,.mp3"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4,.mp3,.jpg,.jpeg,.png,.gif,.webp"
           multiple
           @change="onFileChange" />
       </div>
@@ -172,7 +172,7 @@ const uploadingName = ref('')
 const uploadError = ref('')
 const isDragging = ref(false)
 
-const ALLOWED = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.mp4', '.mp3']
+const ALLOWED = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.mp4', '.mp3', '.jpg', '.jpeg', '.png', '.gif', '.webp']
 const MAX_SIZE = 100 * 1024 * 1024
 
 async function save() {
@@ -244,7 +244,7 @@ function onDrop(e) {
   handleFiles(files)
 }
 
-function handleFiles(files) {
+async function handleFiles(files) {
   uploadError.value = ''
   if (!isEdit.value) {
     // Create mode: tambah ke antrian lokal
@@ -253,9 +253,9 @@ function handleFiles(files) {
     }
     return
   }
-  // Edit mode: upload langsung satu per satu
+  // Edit mode: upload langsung satu per satu (sequential — tunggu tiap file selesai)
   for (const f of files) {
-    if (validateFile(f)) uploadImmediate(f)
+    if (validateFile(f)) await uploadImmediate(f)
   }
 }
 
