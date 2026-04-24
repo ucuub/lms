@@ -17,12 +17,28 @@
           <div>❓ Jumlah Soal: <strong>{{ quiz.questionCount }}</strong></div>
         </div>
       </div>
+
+      <!-- Tombol untuk student -->
       <div v-if="!auth.isTeacher" class="card p-6 text-center">
-        <RouterLink :to="`/courses/${route.params.courseId}/quizzes/${quiz.id}/take`" class="btn-primary px-8 py-3 text-base">
-          Mulai Quiz
-        </RouterLink>
-        <p class="text-xs text-gray-400 mt-2">Pastikan Anda siap sebelum memulai</p>
+        <!-- Ada sesi yang belum selesai -->
+        <div v-if="hasInProgress" class="space-y-3">
+          <div class="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+            Kamu memiliki sesi ujian yang belum diselesaikan. Lanjutkan dari soal yang sudah dijawab.
+          </div>
+          <RouterLink :to="`/courses/${route.params.courseId}/quizzes/${quiz.id}/take`" class="btn-primary px-8 py-3 text-base inline-block">
+            Lanjutkan Quiz
+          </RouterLink>
+        </div>
+
+        <!-- Mulai baru -->
+        <div v-else>
+          <RouterLink :to="`/courses/${route.params.courseId}/quizzes/${quiz.id}/take`" class="btn-primary px-8 py-3 text-base">
+            Mulai Quiz
+          </RouterLink>
+          <p class="text-xs text-gray-400 mt-2">Pastikan Anda siap sebelum memulai</p>
+        </div>
       </div>
+
       <div v-if="auth.isTeacher" class="card p-4 flex gap-2">
         <RouterLink :to="`/courses/${route.params.courseId}/quizzes/${quiz.id}/manage`" class="btn-outline">
           Kelola Soal
@@ -41,9 +57,19 @@ import { quizzesApi } from '@/api/quizzes'
 const route = useRoute()
 const auth = useAuthStore()
 const quiz = ref(null)
+const hasInProgress = ref(false)
 
 onMounted(async () => {
   const { data } = await quizzesApi.getById(route.params.id)
   quiz.value = data
+
+  if (!auth.isTeacher) {
+    try {
+      const { data: inProgress } = await quizzesApi.checkInProgress(route.params.id)
+      hasInProgress.value = inProgress.hasInProgress
+    } catch {
+      hasInProgress.value = false
+    }
+  }
 })
 </script>

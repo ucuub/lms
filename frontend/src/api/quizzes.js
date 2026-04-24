@@ -16,7 +16,9 @@ export const quizzesApi = {
   importFromBank: (quizId, ids) => api.post(`/quizzes/${quizId}/import-from-bank`, { questionBankIds: ids }),
 
   // Attempts
+  checkInProgress: (quizId) => api.get(`/quizzes/${quizId}/in-progress`),
   start: (quizId) => api.post(`/quizzes/${quizId}/start`),
+  saveProgress: (attemptId, answers) => api.post(`/attempts/${attemptId}/save-progress`, { answers }),
   submit: (attemptId, answers) => api.post(`/attempts/${attemptId}/submit`, { answers }),
   getResult: (attemptId) => api.get(`/attempts/${attemptId}/result`),
   gradeEssay: (answerId, data) => api.post(`/attempt-answers/${answerId}/grade`, data),

@@ -5,14 +5,26 @@
       <div class="card p-4 mb-6 flex items-center justify-between sticky top-4 z-10">
         <div>
           <h1 class="font-semibold text-gray-900">{{ quiz.quizTitle }}</h1>
-          <p class="text-sm text-gray-500">{{ quiz.questions.length }} soal</p>
+          <p class="text-sm text-gray-500">
+            {{ quiz.questions.length }} soal
+            <span v-if="quiz.isResume" class="ml-2 text-blue-600 font-medium">· Melanjutkan sesi sebelumnya</span>
+          </p>
         </div>
-        <div v-if="quiz.timeLimitMinutes > 0"
-          :class="['flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-lg font-bold', timeWarning ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700']">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          {{ formattedTime }}
+        <div class="flex items-center gap-3">
+          <!-- Auto-save indicator -->
+          <span v-if="saveStatus === 'saving'" class="text-xs text-gray-400 flex items-center gap-1">
+            <div class="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+            Menyimpan...
+          </span>
+          <span v-else-if="saveStatus === 'saved'" class="text-xs text-green-500">✓ Tersimpan</span>
+
+          <div v-if="quiz.timeLimitMinutes > 0"
+            :class="['flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-lg font-bold', timeWarning ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700']">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            {{ formattedTime }}
+          </div>
         </div>
       </div>
 
@@ -34,14 +46,19 @@
                          answers[q.id]?.selectedOptionId === opt.id
                            ? 'border-blue-500 bg-blue-50'
                            : 'border-gray-200 hover:bg-gray-50']">
-                <input type="radio" :name="`q-${q.id}`" :value="opt.id" v-model.number="answers[q.id].selectedOptionId" class="w-4 h-4 text-blue-600" />
+                <input type="radio" :name="`q-${q.id}`" :value="opt.id"
+                  v-model.number="answers[q.id].selectedOptionId"
+                  @change="scheduleAutoSave"
+                  class="w-4 h-4 text-blue-600" />
                 <span class="text-sm text-gray-800">{{ opt.text }}</span>
               </label>
             </div>
 
             <!-- Essay -->
             <div v-else>
-              <textarea v-model="answers[q.id].essayAnswer" class="textarea" rows="5"
+              <textarea v-model="answers[q.id].essayAnswer"
+                @input="scheduleAutoSave"
+                class="textarea" rows="5"
                 placeholder="Tulis jawaban Anda di sini..."></textarea>
             </div>
           </div>
@@ -97,7 +114,9 @@ const submitting = ref(false)
 const showConfirm = ref(false)
 const answers = reactive({})
 const timeLeft = ref(0)
+const saveStatus = ref('') // 'saving' | 'saved' | ''
 let timer = null
+let saveTimer = null
 
 const formattedTime = computed(() => {
   const m = Math.floor(timeLeft.value / 60).toString().padStart(2, '0')
@@ -115,14 +134,26 @@ const answeredCount = computed(() => {
   }).length
 })
 
-function initAnswers(questions) {
+function initAnswers(questions, savedAnswers = []) {
   questions.forEach(q => {
-    answers[q.id] = { selectedOptionId: null, essayAnswer: '' }
+    const saved = savedAnswers.find(s => s.questionId === q.id)
+    answers[q.id] = {
+      selectedOptionId: saved?.selectedOptionId ?? null,
+      essayAnswer: saved?.essayAnswer ?? ''
+    }
   })
 }
 
-function startTimer(minutes) {
-  timeLeft.value = minutes * 60
+function startTimer(minutes, startedAt) {
+  const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+  const remaining = minutes * 60 - elapsed
+  timeLeft.value = Math.max(0, remaining)
+
+  if (timeLeft.value <= 0) {
+    submitQuiz()
+    return
+  }
+
   timer = setInterval(() => {
     if (timeLeft.value <= 0) {
       clearInterval(timer)
@@ -133,7 +164,30 @@ function startTimer(minutes) {
   }, 1000)
 }
 
+function scheduleAutoSave() {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(autoSave, 2000)
+}
+
+async function autoSave() {
+  if (!quiz.value) return
+  saveStatus.value = 'saving'
+  try {
+    const answerList = quiz.value.questions.map(q => ({
+      questionId: q.id,
+      selectedOptionId: answers[q.id]?.selectedOptionId ?? null,
+      essayAnswer: answers[q.id]?.essayAnswer || null
+    }))
+    await quizzesApi.saveProgress(quiz.value.attemptId, answerList)
+    saveStatus.value = 'saved'
+    setTimeout(() => { saveStatus.value = '' }, 3000)
+  } catch {
+    saveStatus.value = ''
+  }
+}
+
 function confirmSubmit() {
+  clearTimeout(saveTimer)
   showConfirm.value = true
 }
 
@@ -158,8 +212,8 @@ onMounted(async () => {
   try {
     const { data } = await quizzesApi.start(route.params.id)
     quiz.value = data
-    initAnswers(data.questions)
-    if (data.timeLimitMinutes > 0) startTimer(data.timeLimitMinutes)
+    initAnswers(data.questions, data.savedAnswers ?? [])
+    if (data.timeLimitMinutes > 0) startTimer(data.timeLimitMinutes, data.startedAt)
   } catch (e) {
     alert(e.response?.data?.message || 'Gagal memulai quiz.')
     router.back()
@@ -168,5 +222,8 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  clearInterval(timer)
+  clearTimeout(saveTimer)
+})
 </script>

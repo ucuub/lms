@@ -12,7 +12,8 @@ public record QuizRequest(
     int MaxAttempts = 1,
     int PassScore = 60,
     DateTime? DueDate = null,
-    bool IsPublished = false
+    bool IsPublished = false,
+    bool ShowAnswers = false
 );
 
 public record QuizResponse(
@@ -25,6 +26,7 @@ public record QuizResponse(
     int PassScore,
     DateTime? DueDate,
     bool IsPublished,
+    bool ShowAnswers,
     int QuestionCount,
     int TotalPoints,
     int AttemptCount,
@@ -71,8 +73,18 @@ public record QuizTakeResponse(
     string QuizTitle,
     int TimeLimitMinutes,
     DateTime StartedAt,
-    List<TakeQuestionDto> Questions
+    List<TakeQuestionDto> Questions,
+    bool IsResume,
+    List<SavedAnswerDto> SavedAnswers
 );
+
+public record SavedAnswerDto(
+    int QuestionId,
+    int? SelectedOptionId,
+    string? EssayAnswer
+);
+
+public record SaveProgressRequest(List<SubmitAnswerDto> Answers);
 
 public record TakeQuestionDto(
     int Id,
@@ -109,7 +121,8 @@ public record QuizResultResponse(
     int PassScore,
     DateTime StartedAt,
     DateTime? SubmittedAt,
-    List<AnswerResultDto> Answers
+    List<AnswerResultDto> Answers,
+    bool ShowAnswers
 );
 
 public record AnswerResultDto(

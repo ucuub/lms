@@ -11,6 +11,7 @@ public class Quiz
     public int PassScore { get; set; } = 60;
     public DateTime? DueDate { get; set; }
     public bool IsPublished { get; set; } = false;
+    public bool ShowAnswers { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

@@ -7,6 +7,20 @@
       <button @click="showForm = !showForm" class="btn-primary btn-sm">+ Tambah Soal</button>
     </div>
 
+    <!-- Pengaturan Quiz -->
+    <div v-if="quizInfo" class="card p-4 mb-4 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-sm font-medium text-gray-800">Tampilkan jawaban setelah ujian</p>
+        <p class="text-xs text-gray-400">Jika dimatikan, peserta hanya melihat skor tanpa detail jawaban benar/salah.</p>
+      </div>
+      <button @click="toggleShowAnswers"
+        :class="['relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+                 quizInfo.showAnswers ? 'bg-blue-600' : 'bg-gray-200']">
+        <span :class="['inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200',
+                       quizInfo.showAnswers ? 'translate-x-5' : 'translate-x-0']"></span>
+      </button>
+    </div>
+
     <!-- Add Question Form -->
     <div v-if="showForm" class="card p-5 mb-4">
       <h3 class="font-medium mb-3">Tambah Soal Baru</h3>
@@ -143,6 +157,7 @@ import { quizzesApi } from '@/api/quizzes'
 
 const route = useRoute()
 const questions = ref([])
+const quizInfo = ref(null)
 const showForm = ref(false)
 const saving = ref(false)
 
@@ -167,8 +182,19 @@ function setCorrect(idx) {
 }
 
 async function load() {
-  const { data } = await quizzesApi.getQuestions(route.params.id)
-  questions.value = data
+  const [qRes, infoRes] = await Promise.all([
+    quizzesApi.getQuestions(route.params.id),
+    quizzesApi.getById(route.params.id)
+  ])
+  questions.value = qRes.data
+  quizInfo.value = infoRes.data
+}
+
+async function toggleShowAnswers() {
+  if (!quizInfo.value) return
+  const updated = { ...quizInfo.value, showAnswers: !quizInfo.value.showAnswers }
+  await quizzesApi.update(quizInfo.value.id, updated)
+  quizInfo.value.showAnswers = updated.showAnswers
 }
 
 async function addQuestion() {

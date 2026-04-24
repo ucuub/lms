@@ -67,7 +67,8 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
             MaxAttempts = req.MaxAttempts,
             PassScore = req.PassScore,
             DueDate = req.DueDate,
-            IsPublished = req.IsPublished
+            IsPublished = req.IsPublished,
+            ShowAnswers = req.ShowAnswers
         };
         db.Quizzes.Add(quiz);
         await db.SaveChangesAsync();
@@ -93,6 +94,7 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
         quiz.PassScore        = req.PassScore;
         quiz.DueDate          = req.DueDate;
         quiz.IsPublished      = req.IsPublished;
+        quiz.ShowAnswers      = req.ShowAnswers;
         await db.SaveChangesAsync();
 
         // Kirim notifikasi ke semua student saat quiz baru dipublish
@@ -300,6 +302,14 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
         return Ok(result);
     }
 
+    [HttpGet("quizzes/{quizId:int}/in-progress")]
+    public async Task<IActionResult> CheckInProgress(int quizId)
+    {
+        var has = await db.QuizAttempts.AnyAsync(
+            a => a.QuizId == quizId && a.UserId == UserId && a.SubmittedAt == null);
+        return Ok(new { hasInProgress = has });
+    }
+
     [HttpPost("quizzes/{quizId:int}/start")]
     public async Task<ActionResult<QuizTakeResponse>> StartAttempt(int quizId)
     {
@@ -309,29 +319,86 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
 
         if (quiz == null || !quiz.IsPublished) return NotFound();
 
-        // Check max attempts
-        var attemptCount = await db.QuizAttempts.CountAsync(a => a.QuizId == quizId && a.UserId == UserId);
-        if (attemptCount >= quiz.MaxAttempts)
+        // Cek apakah ada attempt yang belum selesai (resume)
+        var inProgress = await db.QuizAttempts
+            .Include(a => a.Answers)
+            .FirstOrDefaultAsync(a => a.QuizId == quizId && a.UserId == UserId && a.SubmittedAt == null);
+
+        if (inProgress != null)
+        {
+            var savedAnswers = inProgress.Answers.Select(a => new SavedAnswerDto(
+                a.QuestionId, a.SelectedOptionId, a.EssayAnswer)).ToList();
+
+            var questions = quiz.Questions.OrderBy(q => q.Order).Select(q => new TakeQuestionDto(
+                q.Id, q.Text, q.Type, q.Points, q.Order,
+                q.Options.Select(o => new TakeOptionDto(o.Id, o.Text)).ToList()
+            )).ToList();
+
+            return Ok(new QuizTakeResponse(
+                inProgress.Id, quiz.Id, quiz.Title, quiz.TimeLimitMinutes,
+                inProgress.StartedAt, questions, true, savedAnswers));
+        }
+
+        // Cek max attempts (hanya attempt yang sudah di-submit)
+        var submittedCount = await db.QuizAttempts.CountAsync(
+            a => a.QuizId == quizId && a.UserId == UserId && a.SubmittedAt != null);
+        if (submittedCount >= quiz.MaxAttempts)
             return BadRequest(new { message = $"Maksimal {quiz.MaxAttempts} percobaan." });
 
-        // Create attempt
+        // Buat attempt baru
         var attempt = new QuizAttempt
         {
             QuizId = quizId,
             UserId = UserId,
+            AttemptNumber = submittedCount + 1,
             StartedAt = DateTime.UtcNow
         };
         db.QuizAttempts.Add(attempt);
         await db.SaveChangesAsync();
 
-        // Return questions WITHOUT correct answers
-        var questions = quiz.Questions.OrderBy(q => q.Order).Select(q => new TakeQuestionDto(
+        var qs = quiz.Questions.OrderBy(q => q.Order).Select(q => new TakeQuestionDto(
             q.Id, q.Text, q.Type, q.Points, q.Order,
             q.Options.Select(o => new TakeOptionDto(o.Id, o.Text)).ToList()
         )).ToList();
 
         return Ok(new QuizTakeResponse(
-            attempt.Id, quiz.Id, quiz.Title, quiz.TimeLimitMinutes, attempt.StartedAt, questions));
+            attempt.Id, quiz.Id, quiz.Title, quiz.TimeLimitMinutes,
+            attempt.StartedAt, qs, false, []));
+    }
+
+    [HttpPost("attempts/{attemptId:int}/save-progress")]
+    public async Task<IActionResult> SaveProgress(int attemptId, SaveProgressRequest req)
+    {
+        var attempt = await db.QuizAttempts
+            .Include(a => a.Answers)
+            .Include(a => a.Quiz)
+            .FirstOrDefaultAsync(a => a.Id == attemptId);
+
+        if (attempt == null || attempt.UserId != UserId) return NotFound();
+        if (attempt.SubmittedAt != null) return BadRequest(new { message = "Attempt sudah dikumpulkan." });
+
+        foreach (var ans in req.Answers)
+        {
+            var existing = attempt.Answers.FirstOrDefault(a => a.QuestionId == ans.QuestionId);
+            if (existing != null)
+            {
+                existing.SelectedOptionId = ans.SelectedOptionId;
+                existing.EssayAnswer = ans.EssayAnswer;
+            }
+            else
+            {
+                db.AttemptAnswers.Add(new AttemptAnswer
+                {
+                    AttemptId = attemptId,
+                    QuestionId = ans.QuestionId,
+                    SelectedOptionId = ans.SelectedOptionId,
+                    EssayAnswer = ans.EssayAnswer
+                });
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("attempts/{attemptId:int}/submit")]
@@ -403,10 +470,15 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
                 });
             }
 
+            var showAnswers = attempt.Quiz.ShowAnswers;
             answerResults.Add(new AnswerResultDto(
                 question.Id, question.Text, question.Type, question.Points,
-                earnedPoints, selectedOption?.Text, correctAnswer,
-                submitted?.EssayAnswer, isCorrect, needsGrading));
+                earnedPoints,
+                showAnswers ? selectedOption?.Text : null,
+                showAnswers ? correctAnswer : null,
+                showAnswers ? submitted?.EssayAnswer : null,
+                showAnswers ? isCorrect : null,
+                needsGrading));
         }
 
         attempt.Score = totalScore;
@@ -421,7 +493,7 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
             Math.Round((double)totalScore / maxScore * 100, 1),
             attempt.IsPassed, attempt.Quiz.PassScore,
             attempt.StartedAt, attempt.SubmittedAt,
-            answerResults));
+            answerResults, attempt.Quiz.ShowAnswers));
     }
 
     [HttpGet("attempts/{attemptId:int}/result")]
@@ -437,12 +509,15 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
         var isTeacher = await IsTeacherOrAdmin(attempt.Quiz.CourseId);
         if (!isTeacher && attempt.UserId != UserId) return Forbid();
 
+        var showAnswers = attempt.Quiz.ShowAnswers;
         var answers = attempt.Answers.Select(ans => new AnswerResultDto(
             ans.QuestionId, ans.Question.Text, ans.Question.Type, ans.Question.Points,
             ans.EarnedPoints,
-            ans.SelectedOptionId != null ? ans.Question.Options.FirstOrDefault(o => o.Id == ans.SelectedOptionId)?.Text : null,
-            ans.Question.Options.FirstOrDefault(o => o.IsCorrect)?.Text,
-            ans.EssayAnswer, ans.IsCorrect,
+            showAnswers && ans.SelectedOptionId != null
+                ? ans.Question.Options.FirstOrDefault(o => o.Id == ans.SelectedOptionId)?.Text : null,
+            showAnswers ? ans.Question.Options.FirstOrDefault(o => o.IsCorrect)?.Text : null,
+            showAnswers ? ans.EssayAnswer : null,
+            showAnswers ? ans.IsCorrect : null,
             ans.Question.Type == QuestionType.Essay && ans.IsCorrect == null
         )).ToList();
 
@@ -451,7 +526,7 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
             attempt.Score, attempt.MaxScore,
             attempt.MaxScore > 0 ? Math.Round((double)attempt.Score / attempt.MaxScore * 100, 1) : 0,
             attempt.IsPassed, attempt.Quiz.PassScore,
-            attempt.StartedAt, attempt.SubmittedAt, answers));
+            attempt.StartedAt, attempt.SubmittedAt, answers, attempt.Quiz.ShowAnswers));
     }
 
     // Grade essay answer
@@ -558,7 +633,7 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
     private static QuizResponse ToQuizResponse(Quiz q) => new(
         q.Id, q.CourseId, q.Title, q.Description,
         q.TimeLimitMinutes, q.MaxAttempts, q.PassScore, q.DueDate,
-        q.IsPublished, q.Questions?.Count ?? 0,
+        q.IsPublished, q.ShowAnswers, q.Questions?.Count ?? 0,
         q.Questions?.Sum(qq => qq.Points) ?? 0,
         q.Attempts?.Count ?? 0, q.CreatedAt);
 
