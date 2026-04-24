@@ -350,6 +350,8 @@ app.MapControllers();
                 _ = db.MandatoryExams.Any(e => e.PublicAccessCode == null);
                 // Deteksi kolom IsLinkToken di MandatoryExamSessions
                 _ = db.MandatoryExamSessions.Any(s => s.IsLinkToken == false);
+                // Deteksi kolom ShowAnswers di Quizzes
+                _ = db.Quizzes.Any(q => q.ShowAnswers == false);
             }
             catch
             {

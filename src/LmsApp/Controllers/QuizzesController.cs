@@ -470,14 +470,14 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
                 });
             }
 
-            var showAnswers = attempt.Quiz.ShowAnswers;
+            // isCorrect & jawaban peserta selalu tampil, kunci jawaban hanya jika ShowAnswers = true
             answerResults.Add(new AnswerResultDto(
                 question.Id, question.Text, question.Type, question.Points,
                 earnedPoints,
-                showAnswers ? selectedOption?.Text : null,
-                showAnswers ? correctAnswer : null,
-                showAnswers ? submitted?.EssayAnswer : null,
-                showAnswers ? isCorrect : null,
+                selectedOption?.Text,
+                attempt.Quiz.ShowAnswers ? correctAnswer : null,
+                submitted?.EssayAnswer,
+                isCorrect,
                 needsGrading));
         }
 
@@ -509,15 +509,14 @@ public class QuizzesController(LmsDbContext db, INotificationService notifServic
         var isTeacher = await IsTeacherOrAdmin(attempt.Quiz.CourseId);
         if (!isTeacher && attempt.UserId != UserId) return Forbid();
 
-        var showAnswers = attempt.Quiz.ShowAnswers;
         var answers = attempt.Answers.Select(ans => new AnswerResultDto(
             ans.QuestionId, ans.Question.Text, ans.Question.Type, ans.Question.Points,
             ans.EarnedPoints,
-            showAnswers && ans.SelectedOptionId != null
+            ans.SelectedOptionId != null
                 ? ans.Question.Options.FirstOrDefault(o => o.Id == ans.SelectedOptionId)?.Text : null,
-            showAnswers ? ans.Question.Options.FirstOrDefault(o => o.IsCorrect)?.Text : null,
-            showAnswers ? ans.EssayAnswer : null,
-            showAnswers ? ans.IsCorrect : null,
+            attempt.Quiz.ShowAnswers ? ans.Question.Options.FirstOrDefault(o => o.IsCorrect)?.Text : null,
+            ans.EssayAnswer,
+            ans.IsCorrect,
             ans.Question.Type == QuestionType.Essay && ans.IsCorrect == null
         )).ToList();
 
