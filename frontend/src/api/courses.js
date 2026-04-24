@@ -42,7 +42,7 @@ export const modulesApi = {
   uploadAttachment: (courseId, moduleId, file) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post(`/courses/${courseId}/modules/${moduleId}/attachments`, form)
+    return api.post(`/courses/${courseId}/modules/${moduleId}/attachments`, form, { timeout: 300000 })
   },
   deleteAttachment: (courseId, moduleId, attId) =>
     api.delete(`/courses/${courseId}/modules/${moduleId}/attachments/${attId}`),
