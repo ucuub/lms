@@ -328,37 +328,21 @@ app.MapControllers();
     }
     else if (isSqlite)
     {
-        // SQLite: drop + recreate jika tabel baru belum ada (EnsureCreated tidak update schema)
-        if (app.Environment.IsDevelopment())
-        {
-            try
-            {
-                _ = db.CourseResources.Any();
-                _ = db.Conversations.Any();
-                _ = db.ActivityLogs.Any();
-                _ = db.PracticeQuizzes.Any();
-                _ = db.CourseSections.Any();
-                // Deteksi kolom SectionId di CourseModules — jika kolom belum ada akan throw
-                _ = db.CourseModules.Any(m => m.SectionId == null);
-                // Deteksi tabel Exam baru
-                _ = db.Exams.Any();
-                // Deteksi tabel QuestionSet baru
-                _ = db.QuestionSets.Any();
-                // Deteksi tabel CourseQuestionBank baru
-                _ = db.CourseQuestionBanks.Any();
-                // Deteksi kolom PublicAccessCode di MandatoryExams
-                _ = db.MandatoryExams.Any(e => e.PublicAccessCode == null);
-                // Deteksi kolom IsLinkToken di MandatoryExamSessions
-                _ = db.MandatoryExamSessions.Any(s => s.IsLinkToken == false);
-                // Deteksi kolom ShowAnswers di Quizzes
-                _ = db.Quizzes.Any(q => q.ShowAnswers == false);
-            }
-            catch
-            {
-                db.Database.EnsureDeleted();
-            }
-        }
+        // SQLite: buat tabel jika belum ada, lalu tambahkan kolom baru yang mungkin belum ada.
+        // JANGAN drop DB — data pengguna akan hilang.
         db.Database.EnsureCreated();
+
+        // Tambahkan kolom-kolom baru yang mungkin belum ada di DB lama
+        // SQLite tidak support IF NOT EXISTS di ALTER TABLE, pakai try/catch per kolom
+        var sqliteAlters = new[]
+        {
+            "ALTER TABLE \"Quizzes\" ADD COLUMN \"ShowAnswers\" INTEGER NOT NULL DEFAULT 0",
+        };
+        foreach (var sql in sqliteAlters)
+        {
+            try { await db.Database.ExecuteSqlRawAsync(sql); }
+            catch { /* kolom sudah ada, lewati */ }
+        }
     }
     else
     {
