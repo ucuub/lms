@@ -25,7 +25,7 @@ public class CourseSectionService(LmsDbContext db) : ICourseSectionService
                 .OrderBy(m => m.Order)
                 .Select(m => new ModuleSummaryDto(
                     m.Id, m.Title, m.Order, m.IsPublished,
-                    m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
+                    m.ContentType.ToString(), m.SectionId))
                 .ToList()));
     }
 
@@ -45,7 +45,7 @@ public class CourseSectionService(LmsDbContext db) : ICourseSectionService
                 .OrderBy(m => m.Order)
                 .Select(m => new ModuleSummaryDto(
                     m.Id, m.Title, m.Order, m.IsPublished,
-                    m.DurationMinutes, m.ContentType.ToString(), m.SectionId))
+                    m.ContentType.ToString(), m.SectionId))
                 .ToList());
     }
 

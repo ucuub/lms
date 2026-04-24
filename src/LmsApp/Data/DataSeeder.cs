@@ -51,7 +51,6 @@ public static class DataSeeder
                 CourseId = course1.Id, Order = 0, IsPublished = true,
                 Title       = "Pengenalan HTML: Struktur Halaman Web",
                 ContentType = ModuleContentType.Text,
-                DurationMinutes = 30,
                 Content = @"<h2>Apa itu HTML?</h2>
 <p>HTML (<strong>HyperText Markup Language</strong>) adalah bahasa markup standar untuk membuat halaman web. HTML mendeskripsikan struktur halaman web menggunakan elemen-elemen yang direpresentasikan oleh tag.</p>
 
@@ -94,7 +93,6 @@ public static class DataSeeder
                 CourseId = course1.Id, Order = 1, IsPublished = true,
                 Title       = "CSS: Menghias Halaman Web",
                 ContentType = ModuleContentType.Mixed,
-                DurationMinutes = 45,
                 VideoUrl      = "https://www.youtube.com/watch?v=1Rs2ND1ryYc",
                 VideoEmbedId  = "1Rs2ND1ryYc",
                 VideoProvider = VideoProvider.YouTube,
@@ -143,7 +141,6 @@ p { color: #333; }
                 CourseId = course1.Id, Order = 2, IsPublished = true,
                 Title       = "JavaScript: Membuat Web Interaktif",
                 ContentType = ModuleContentType.Text,
-                DurationMinutes = 60,
                 Content = @"<h2>JavaScript: Bahasa Pemrograman Web</h2>
 <p>JavaScript adalah bahasa pemrograman yang membuat halaman web menjadi interaktif dan dinamis. Hampir semua website modern menggunakan JavaScript.</p>
 
@@ -205,7 +202,6 @@ judul.classList.toggle('aktif');</code></pre>
                 CourseId = course1.Id, Order = 3, IsPublished = true,
                 Title       = "Responsive Design dengan CSS Grid",
                 ContentType = ModuleContentType.Text,
-                DurationMinutes = 40,
                 Content = @"<h2>Responsive Web Design</h2>
 <p>Responsive design memastikan website terlihat bagus di semua ukuran layar, dari smartphone hingga desktop.</p>
 
@@ -254,7 +250,6 @@ judul.classList.toggle('aktif');</code></pre>
                 CourseId = course1.Id, Order = 4, IsPublished = true,
                 Title       = "Project: Membuat Website Portfolio",
                 ContentType = ModuleContentType.Text,
-                DurationMinutes = 90,
                 Content = @"<h2>Project Akhir: Website Portfolio</h2>
 <p>Pada modul ini kita akan membuat website portfolio lengkap menggunakan HTML, CSS, dan JavaScript yang telah dipelajari.</p>
 
@@ -570,7 +565,6 @@ judul.classList.toggle('aktif');</code></pre>
             new() {
                 CourseId = course2.Id, Order = 0, IsPublished = true,
                 Title = "Pengenalan UI/UX Design",
-                ContentType = ModuleContentType.Text, DurationMinutes = 30,
                 Content = @"<h2>Apa itu UI/UX Design?</h2>
 <p><strong>UI (User Interface)</strong> adalah tampilan visual dari sebuah produk digital — semua yang dilihat dan diklik pengguna.</p>
 <p><strong>UX (User Experience)</strong> adalah keseluruhan pengalaman pengguna saat berinteraksi dengan produk — apakah mudah digunakan, menyenangkan, dan efisien.</p>
@@ -603,7 +597,6 @@ judul.classList.toggle('aktif');</code></pre>
             new() {
                 CourseId = course2.Id, Order = 1, IsPublished = true,
                 Title = "Figma: Fitur Dasar dan Interface",
-                ContentType = ModuleContentType.Mixed, DurationMinutes = 45,
                 VideoUrl = "https://www.youtube.com/watch?v=FTFaQWZBqQ8",
                 VideoEmbedId = "FTFaQWZBqQ8", VideoProvider = VideoProvider.YouTube,
                 Content = @"<h2>Mengenal Interface Figma</h2>
@@ -634,7 +627,6 @@ Ctrl+/  - Quick actions</code></pre>
             new() {
                 CourseId = course2.Id, Order = 2, IsPublished = true,
                 Title = "Prinsip Desain: Typography & Color Theory",
-                ContentType = ModuleContentType.Text, DurationMinutes = 40,
                 Content = @"<h2>Typography dalam UI Design</h2>
 <p>Typography adalah seni mengatur teks agar mudah dibaca dan menarik secara visual.</p>
 
@@ -672,7 +664,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             new() {
                 CourseId = course2.Id, Order = 3, IsPublished = true,
                 Title = "Wireframing: Membuat Kerangka Aplikasi",
-                ContentType = ModuleContentType.Text, DurationMinutes = 60,
                 Content = @"<h2>Apa itu Wireframe?</h2>
 <p>Wireframe adalah blueprint/kerangka kasar dari sebuah halaman atau aplikasi. Dibuat tanpa warna, gambar, atau detail visual — fokus pada struktur dan alur konten.</p>
 
@@ -704,7 +695,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             new() {
                 CourseId = course2.Id, Order = 4, IsPublished = true,
                 Title = "Prototype Interaktif dan User Testing",
-                ContentType = ModuleContentType.Text, DurationMinutes = 50,
                 Content = @"<h2>Membuat Prototype di Figma</h2>
 <p>Prototype adalah simulasi interaktif dari desain yang memungkinkan pengguna 'mengklik' dan merasakan alur aplikasi sebelum benar-benar di-develop.</p>
 
@@ -873,7 +863,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
         db.CourseModules.AddRange(
             new CourseModule {
                 CourseId = course3.Id, Order = 0, IsPublished = true,
-                Title = "Pengenalan Digital Marketing", ContentType = ModuleContentType.Text, DurationMinutes = 25,
                 Content = @"<h2>Apa itu Digital Marketing?</h2>
 <p>Digital marketing adalah semua upaya pemasaran yang menggunakan internet dan perangkat digital. Ini mencakup berbagai channel seperti mesin pencari, media sosial, email, website, dan iklan online.</p>
 
@@ -899,7 +888,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             },
             new CourseModule {
                 CourseId = course3.Id, Order = 1, IsPublished = true,
-                Title = "SEO: Optimasi Mesin Pencari", ContentType = ModuleContentType.Text, DurationMinutes = 50,
                 Content = @"<h2>Search Engine Optimization (SEO)</h2>
 <p>SEO adalah proses mengoptimasi website agar muncul di posisi teratas hasil pencarian Google (organik/gratis).</p>
 
@@ -932,7 +920,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             },
             new CourseModule {
                 CourseId = course3.Id, Order = 2, IsPublished = true,
-                Title = "Social Media Marketing", ContentType = ModuleContentType.Text, DurationMinutes = 45,
                 Content = @"<h2>Social Media Marketing</h2>
 <p>Social media marketing adalah penggunaan platform media sosial untuk membangun brand, meningkatkan traffic, dan mengkonversi leads menjadi pelanggan.</p>
 
@@ -967,7 +954,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             },
             new CourseModule {
                 CourseId = course3.Id, Order = 3, IsPublished = true,
-                Title = "Email Marketing yang Efektif", ContentType = ModuleContentType.Text, DurationMinutes = 35,
                 Content = @"<h2>Email Marketing</h2>
 <p>Email marketing memiliki ROI tertinggi di antara semua channel digital marketing: rata-rata $42 untuk setiap $1 yang diinvestasikan.</p>
 
@@ -1002,7 +988,6 @@ Caption: 12px (Keterangan kecil)</code></pre>
             new CourseModule {
                 CourseId = course3.Id, Order = 4, IsPublished = true,
                 Title = "Analytics: Mengukur dan Mengoptimasi Kampanye",
-                ContentType = ModuleContentType.Text, DurationMinutes = 40,
                 Content = @"<h2>Digital Marketing Analytics</h2>
 <p>Data adalah fondasi dari digital marketing yang sukses. Tanpa mengukur, kamu tidak bisa mengoptimasi.</p>
 

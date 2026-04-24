@@ -60,10 +60,9 @@ public record ModuleSummaryDto(
     string Title,
     int Order,
     bool IsPublished,
-    int DurationMinutes,
     string ContentType,
-    int? SectionId = null,       // nullable default agar backward compat saat construct lama
-    string? VideoEmbedId = null, // untuk preview thumbnail di course detail
+    int? SectionId = null,
+    string? VideoEmbedId = null,
     string? VideoProvider = null
 );
 
