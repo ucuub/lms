@@ -14,7 +14,7 @@ export default defineConfig({
     host: true,
     allowedHosts: 'all',
     proxy: {
-      '/api': { target: 'http://localhost:5000', changeOrigin: true },
+      '/api': { target: 'http://localhost:5000', changeOrigin: true, proxyTimeout: 300000, timeout: 300000 },
       '/uploads': { target: 'http://localhost:5000', changeOrigin: true }
     }
   }

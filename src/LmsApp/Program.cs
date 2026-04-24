@@ -11,6 +11,11 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Naikkan batas body Kestrel ke 100 MB — per-endpoint [RequestSizeLimit] tidak cukup
+// jika body sudah mulai dibaca sebelum filter berjalan
+builder.WebHost.ConfigureKestrel(k =>
+    k.Limits.MaxRequestBodySize = 100 * 1024 * 1024);   // 100 MB
+
 // ── Database ──────────────────────────────────────────────────────────────────
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
 
