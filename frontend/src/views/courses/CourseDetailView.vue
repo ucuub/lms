@@ -76,6 +76,13 @@
                   class="text-gray-400 hover:text-gray-700 text-sm transition" title="Edit modul">
                   ✏️
                 </RouterLink>
+                <button v-if="canManageCourse"
+                  @click="deleteModule(module)"
+                  class="text-gray-300 hover:text-red-500 transition" title="Hapus modul">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
                 <svg v-if="!course.isEnrolled && !canManageCourse" class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
@@ -263,7 +270,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { coursesApi, resourcesApi } from '@/api/courses'
+import { coursesApi, resourcesApi, modulesApi } from '@/api/courses'
 import { certificatesApi } from '@/api/certificates'
 import { questionSetsApi } from '@/api/questionSets'
 
@@ -366,6 +373,16 @@ async function enroll() {
     alert(e.response?.data?.message || 'Gagal mendaftar.')
   } finally {
     enrollLoading.value = false
+  }
+}
+
+async function deleteModule(module) {
+  if (!confirm(`Hapus modul "${module.title}"? Semua lampiran modul ini juga akan ikut terhapus.`)) return
+  try {
+    await modulesApi.delete(course.value.id, module.id)
+    await load()
+  } catch (e) {
+    alert(e.response?.data?.message || 'Gagal menghapus modul.')
   }
 }
 
