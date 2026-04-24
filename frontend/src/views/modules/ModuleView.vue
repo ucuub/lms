@@ -6,7 +6,7 @@
           <button @click="$router.back()" class="btn-outline btn-sm">← Kembali</button>
           <div>
             <h1 class="text-xl font-bold text-gray-900">{{ module.title }}</h1>
-            <p class="text-sm text-gray-500">{{ module.durationMinutes }}m · {{ module.contentType }}</p>
+            <p class="text-sm text-gray-500">{{ module.contentType }}</p>
           </div>
         </div>
         <!-- Edit button — hanya untuk teacher/admin -->

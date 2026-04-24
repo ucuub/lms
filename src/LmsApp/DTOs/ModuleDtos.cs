@@ -9,14 +9,13 @@ public record ModuleRequest(
     string? VideoUrl,
     int Order = 0,
     bool IsPublished = true,
-    int DurationMinutes = 0,
-    int? SectionId = null          // NEW: optional, null = unsectioned (backward compatible)
+    int? SectionId = null
 );
 
 public record ModuleResponse(
     int Id,
     int CourseId,
-    int? SectionId,                // NEW: section yang menampung modul ini
+    int? SectionId,
     string Title,
     string? Content,
     string? VideoUrl,
@@ -25,7 +24,6 @@ public record ModuleResponse(
     string ContentType,
     int Order,
     bool IsPublished,
-    int DurationMinutes,
     List<AttachmentDto> Attachments
 );
 

@@ -120,8 +120,7 @@ public class ModulesController(
             VideoProvider = provider,
             ContentType = contentType,
             Order = req.Order,
-            IsPublished = req.IsPublished,
-            DurationMinutes = req.DurationMinutes
+            IsPublished = req.IsPublished
         };
         db.CourseModules.Add(module);
         await db.SaveChangesAsync();
@@ -158,7 +157,6 @@ public class ModulesController(
         module.ContentType = DetermineContentType(req.Content, req.VideoUrl);
         module.Order = req.Order;
         module.IsPublished = req.IsPublished;
-        module.DurationMinutes = req.DurationMinutes;
         await db.SaveChangesAsync();
         return Ok(ToDto(module));
     }
@@ -268,7 +266,7 @@ public class ModulesController(
     private static ModuleResponse ToDto(CourseModule m) => new(
         m.Id, m.CourseId, m.SectionId, m.Title, m.Content, m.VideoUrl, m.VideoEmbedId,
         m.VideoProvider.ToString(), m.ContentType.ToString(),
-        m.Order, m.IsPublished, m.DurationMinutes,
+        m.Order, m.IsPublished,
         m.Attachments.Select(a => new AttachmentDto(a.Id, a.FileName, a.FileUrl, a.FileSize, a.FileType)).ToList()
     );
 }

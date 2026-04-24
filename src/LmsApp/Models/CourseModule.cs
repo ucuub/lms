@@ -17,7 +17,6 @@ public class CourseModule
     public ModuleContentType ContentType { get; set; } = ModuleContentType.Text;
     public int Order { get; set; }
     public bool IsPublished { get; set; } = true;
-    public int DurationMinutes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

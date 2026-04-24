@@ -23,15 +23,9 @@
           <p class="text-xs text-gray-400 mt-1">Paste link YouTube atau Vimeo — video akan di-embed otomatis.</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="label">Urutan</label>
-            <input v-model.number="form.order" type="number" class="input" min="0" />
-          </div>
-          <div>
-            <label class="label">Durasi (menit)</label>
-            <input v-model.number="form.durationMinutes" type="number" class="input" min="0" />
-          </div>
+        <div>
+          <label class="label">Urutan</label>
+          <input v-model.number="form.order" type="number" class="input" min="0" />
         </div>
 
         <div class="flex items-center gap-2">
@@ -161,7 +155,7 @@ const isEdit = computed(() => !!route.params.id && route.params.id !== 'create')
 const saving = ref(false)
 const uploadProgress = ref('')
 const saveError = ref('')
-const form = ref({ title: '', content: '', videoUrl: '', order: 0, isPublished: true, durationMinutes: 0 })
+const form = ref({ title: '', content: '', videoUrl: '', order: 0, isPublished: true })
 
 // Attachment state
 const fileInput = ref(null)
@@ -299,8 +293,7 @@ onMounted(async () => {
       content: data.content ?? '',
       videoUrl: data.videoUrl ?? '',
       order: data.order,
-      isPublished: data.isPublished,
-      durationMinutes: data.durationMinutes
+      isPublished: data.isPublished
     }
     if (data.attachments?.length) attachments.value = data.attachments
   }
