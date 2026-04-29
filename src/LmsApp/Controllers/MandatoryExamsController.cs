@@ -49,7 +49,7 @@ public class MandatoryExamsController(
             e.MaxAttempts, e.PassScore, e.IsActive,
             e.Questions.Count, e.Assignments.Count, e.CreatedAt,
             e.PublicAccessCode, e.PublicAccessCode == null ? null : BuildPublicLink(e.PublicAccessCode),
-            e.WebhookUrl)));
+            e.WebhookUrl, e.QuestionsPerAttempt)));
     }
 
     // GET /api/mandatory-exams/{id}
@@ -73,13 +73,15 @@ public class MandatoryExamsController(
     {
         var exam = new MandatoryExam
         {
-            Title            = req.Title,
-            Description      = req.Description,
-            TimeLimitMinutes = req.TimeLimitMinutes,
-            MaxAttempts      = Math.Max(1, req.MaxAttempts),
-            PassScore        = Math.Clamp(req.PassScore, 0, 100),
-            CreatedBy        = UserId,
-            CreatedByName    = UserName,
+            Title                = req.Title,
+            Description          = req.Description,
+            TimeLimitMinutes     = req.TimeLimitMinutes,
+            MaxAttempts          = Math.Max(1, req.MaxAttempts),
+            PassScore            = Math.Clamp(req.PassScore, 0, 100),
+            QuestionsPerAttempt  = req.QuestionsPerAttempt.HasValue && req.QuestionsPerAttempt.Value > 0
+                                   ? req.QuestionsPerAttempt.Value : null,
+            CreatedBy            = UserId,
+            CreatedByName        = UserName,
         };
         db.MandatoryExams.Add(exam);
         await db.SaveChangesAsync();
@@ -101,12 +103,14 @@ public class MandatoryExamsController(
         if (string.IsNullOrWhiteSpace(req.Title))
             return BadRequest(new { message = "Judul tidak boleh kosong." });
 
-        exam.Title            = req.Title.Trim();
-        exam.Description      = req.Description?.Trim();
-        exam.TimeLimitMinutes = req.TimeLimitMinutes;
-        exam.MaxAttempts      = Math.Max(1, req.MaxAttempts);
-        exam.PassScore        = Math.Clamp(req.PassScore, 0, 100);
-        exam.WebhookUrl       = string.IsNullOrWhiteSpace(req.WebhookUrl) ? null : req.WebhookUrl.Trim();
+        exam.Title               = req.Title.Trim();
+        exam.Description         = req.Description?.Trim();
+        exam.TimeLimitMinutes    = req.TimeLimitMinutes;
+        exam.MaxAttempts         = Math.Max(1, req.MaxAttempts);
+        exam.PassScore           = Math.Clamp(req.PassScore, 0, 100);
+        exam.WebhookUrl          = string.IsNullOrWhiteSpace(req.WebhookUrl) ? null : req.WebhookUrl.Trim();
+        exam.QuestionsPerAttempt = req.QuestionsPerAttempt.HasValue && req.QuestionsPerAttempt.Value > 0
+                                   ? req.QuestionsPerAttempt.Value : null;
         await db.SaveChangesAsync();
 
         return Ok(new { message = "Ujian berhasil diperbarui." });
@@ -192,6 +196,24 @@ public class MandatoryExamsController(
             .FirstOrDefaultAsync(x => x.Id == qId && x.ExamId == examId);
         if (q == null) return NotFound();
         if (!IsAdmin && q.Exam.CreatedBy != UserId) return Forbid();
+
+        // Hapus semua yang referensi soal ini sebelum hapus soalnya (SQL Server FK = NoAction)
+        var answers = await db.MandatoryExamAnswers
+            .Where(a => a.QuestionId == qId)
+            .ToListAsync();
+        db.MandatoryExamAnswers.RemoveRange(answers);
+
+        var attemptQuestions = await db.MandatoryExamAttemptQuestions
+            .Where(aq => aq.QuestionId == qId)
+            .ToListAsync();
+        db.MandatoryExamAttemptQuestions.RemoveRange(attemptQuestions);
+
+        // Hapus options soal (FK NoAction di SQL Server — tidak cascade otomatis)
+        var options = await db.MandatoryExamOptions
+            .Where(o => o.QuestionId == qId)
+            .ToListAsync();
+        db.MandatoryExamOptions.RemoveRange(options);
+
         db.MandatoryExamQuestions.Remove(q);
         await db.SaveChangesAsync();
         return NoContent();
@@ -691,7 +713,8 @@ public class MandatoryExamsController(
         e.Id, e.Title, e.Description, e.TimeLimitMinutes, e.MaxAttempts, e.PassScore,
         e.IsActive, e.CreatedByName, e.CreatedAt,
         e.Questions.OrderBy(q => q.Order).Select(ToQuestionRes).ToList(),
-        e.Assignments.Select(a => ToAssignmentRes(a, a.Attempts.Count)).ToList());
+        e.Assignments.Select(a => ToAssignmentRes(a, a.Attempts.Count)).ToList(),
+        e.QuestionsPerAttempt);
 
     private static MandatoryQuestionResponse ToQuestionRes(MandatoryExamQuestion q) => new(
         q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, q.Order,
@@ -704,6 +727,75 @@ public class MandatoryExamsController(
         s.Id, s.ExamId, s.UserId, s.GeneratedBy,
         s.GeneratedAt, s.ExpiresAt, s.UsedAt,
         s.IsRevoked, DateTime.UtcNow > s.ExpiresAt);
+}
+
+// ── Shared helper (dipakai oleh kedua controller) ─────────────────────────────
+internal static class MandatoryExamHelper
+{
+    /// <summary>
+    /// Kembalikan soal yang di-assign ke attempt ini.
+    /// - Resume: load dari MandatoryExamAttemptQuestions (soal + urutan tetap sama)
+    /// - Attempt baru + QuestionsPerAttempt diset: acak N soal, simpan ke DB
+    /// - Attempt baru tanpa QuestionsPerAttempt: pakai semua soal
+    /// </summary>
+    public static async Task<List<MandatoryExamQuestion>> GetAssignedQuestionsAsync(
+        LmsDbContext db,
+        MandatoryExam exam,
+        MandatoryExamAttempt attempt,
+        bool isResume)
+    {
+        var allQuestions = exam.Questions.OrderBy(q => q.Order).ToList();
+
+        if (isResume)
+        {
+            var savedIds = await db.MandatoryExamAttemptQuestions
+                .Where(aq => aq.AttemptId == attempt.Id)
+                .OrderBy(aq => aq.Order)
+                .Select(aq => aq.QuestionId)
+                .ToListAsync();
+
+            if (savedIds.Any())
+            {
+                // Kembalikan soal dalam urutan yang tersimpan
+                var questionMap = exam.Questions.ToDictionary(q => q.Id);
+                return savedIds.Where(id => questionMap.ContainsKey(id))
+                               .Select(id => questionMap[id])
+                               .ToList();
+            }
+            // Attempt lama (sebelum fitur ini ada) — jika QuestionsPerAttempt diset,
+            // assign sekarang agar soal terkunci untuk sisa sesi ini juga.
+            // Jika tidak diset, tampilkan semua soal.
+            if (!exam.QuestionsPerAttempt.HasValue || exam.QuestionsPerAttempt.Value >= allQuestions.Count)
+                return allQuestions;
+        }
+
+        // Attempt baru (atau resume lama yang belum punya saved questions + QuestionsPerAttempt diset)
+        List<MandatoryExamQuestion> selected;
+
+        if (exam.QuestionsPerAttempt.HasValue && exam.QuestionsPerAttempt.Value < allQuestions.Count)
+        {
+            // Acak dan ambil N soal
+            selected = allQuestions.OrderBy(_ => Guid.NewGuid())
+                                   .Take(exam.QuestionsPerAttempt.Value)
+                                   .ToList();
+        }
+        else
+        {
+            selected = allQuestions;
+        }
+
+        // Simpan assignment soal untuk attempt ini
+        var assignments = selected.Select((q, idx) => new MandatoryExamAttemptQuestion
+        {
+            AttemptId  = attempt.Id,
+            QuestionId = q.Id,
+            Order      = idx,
+        }).ToList();
+        db.MandatoryExamAttemptQuestions.AddRange(assignments);
+        await db.SaveChangesAsync();
+
+        return selected;
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -809,9 +901,11 @@ public class MandatoryExamSessionController(
         db.MandatoryExamSessions.Add(session);
         await db.SaveChangesAsync();
 
-        // 7. Sembunyikan IsCorrect dari student
-        var questions = exam.Questions.OrderBy(q => q.Order).Select(q => new MandatoryQuestionResponse(
-            q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, q.Order,
+        // 7. Pilih soal: random jika QuestionsPerAttempt diset, atau resume dari assignment yang tersimpan
+        var assignedQuestions = await MandatoryExamHelper.GetAssignedQuestionsAsync(db, exam, activeAttempt!, isResume);
+
+        var questions = assignedQuestions.Select((q, idx) => new MandatoryQuestionResponse(
+            q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, idx,
             q.Options.Select(o => new MandatoryOptionResponse(o.Id, o.Text, false)).ToList()
         )).ToList();
 
@@ -898,9 +992,11 @@ public class MandatoryExamSessionController(
             await db.SaveChangesAsync();
         }
 
-        // Hide IsCorrect from student
-        var questions = exam.Questions.OrderBy(q => q.Order).Select(q => new MandatoryQuestionResponse(
-            q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, q.Order,
+        // Pilih soal: random jika QuestionsPerAttempt diset, atau resume dari assignment yang tersimpan
+        var assignedQuestions = await MandatoryExamHelper.GetAssignedQuestionsAsync(db, exam, activeAttempt!, isResume);
+
+        var questions = assignedQuestions.Select((q, idx) => new MandatoryQuestionResponse(
+            q.Id, q.ExamId, q.Text, q.Type.ToString(), q.Points, idx,
             q.Options.Select(o => new MandatoryOptionResponse(o.Id, o.Text, false)).ToList()
         )).ToList();
 
@@ -932,12 +1028,22 @@ public class MandatoryExamSessionController(
             .FirstOrDefaultAsync(e => e.Id == examId);
         if (exam == null) return NotFound();
 
-        // Score
+        // Pakai soal yang di-assign ke attempt ini (bukan semua soal exam)
+        var assignedIds = await db.MandatoryExamAttemptQuestions
+            .Where(aq => aq.AttemptId == attempt.Id)
+            .OrderBy(aq => aq.Order)
+            .Select(aq => aq.QuestionId)
+            .ToListAsync();
+
+        var scoringQuestions = assignedIds.Any()
+            ? exam.Questions.Where(q => assignedIds.Contains(q.Id)).ToList()
+            : exam.Questions.ToList();
+
         var answers  = new List<MandatoryExamAnswer>();
         int total    = 0;
-        int maxScore = exam.Questions.Sum(q => q.Points);
+        int maxScore = scoringQuestions.Sum(q => q.Points);
 
-        foreach (var q in exam.Questions)
+        foreach (var q in scoringQuestions)
         {
             var submitted = req.Answers.FirstOrDefault(a => a.QuestionId == q.Id);
             var answer = new MandatoryExamAnswer
@@ -1120,7 +1226,8 @@ public class MandatoryExamSessionController(
             attempt.Score ?? 0, attempt.MaxScore ?? 0, pct,
             attempt.IsPassed ?? false, exam.PassScore,
             exam.MaxAttempts, remainingAttempts,
-            attempt.StartedAt, attempt.SubmittedAt!.Value,
+            DateTime.SpecifyKind(attempt.StartedAt, DateTimeKind.Utc),
+            DateTime.SpecifyKind(attempt.SubmittedAt!.Value, DateTimeKind.Utc),
             answerResults);
     }
 }

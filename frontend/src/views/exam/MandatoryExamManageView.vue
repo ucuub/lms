@@ -42,6 +42,11 @@
               <input v-model.number="form.passScore" type="number" class="input" min="0" max="100" />
             </div>
           </div>
+          <div>
+            <label class="label">Soal per Peserta</label>
+            <input v-model.number="form.questionsPerAttempt" type="number" class="input" placeholder="Kosongkan = tampilkan semua soal" min="1" />
+            <p class="text-xs text-gray-400 mt-1">Sistem akan acak sejumlah soal ini dari total soal yang tersedia.</p>
+          </div>
         </div>
         <div class="flex gap-2 mt-5">
           <button @click="createExam" :disabled="saving" class="btn-primary btn-sm flex-1">
@@ -82,6 +87,11 @@
           <div>
             <label class="label">Webhook URL (DWI Mobile)</label>
             <input v-model="editForm.webhookUrl" class="input" placeholder="https://dwimobile.example.com/webhook (opsional)" />
+          </div>
+          <div>
+            <label class="label">Soal per Peserta</label>
+            <input v-model.number="editForm.questionsPerAttempt" type="number" class="input" placeholder="Kosongkan = tampilkan semua soal" min="1" />
+            <p class="text-xs text-gray-400 mt-1">Sistem akan acak sejumlah soal ini dari total soal yang tersedia.</p>
           </div>
         </div>
         <div class="flex gap-2 mt-5">
@@ -140,6 +150,10 @@
         </div>
         <div class="flex gap-4 text-xs text-gray-500 mb-3">
           <span>{{ exam.questionCount }} soal</span>
+          <template v-if="exam.questionsPerAttempt">
+            <span>·</span>
+            <span class="text-blue-600 font-medium">{{ exam.questionsPerAttempt }} diacak</span>
+          </template>
           <span>·</span>
           <span>{{ exam.timeLimitMinutes ? `${exam.timeLimitMinutes} menit` : 'Tanpa batas waktu' }}</span>
           <span>·</span>
@@ -644,14 +658,14 @@ const saving  = ref(false)
 const showCreate = ref(false)
 
 const form = reactive({
-  title: '', description: '', timeLimitMinutes: null, maxAttempts: 1, passScore: 60
+  title: '', description: '', timeLimitMinutes: null, maxAttempts: 1, passScore: 60, questionsPerAttempt: null
 })
 
 // Edit exam
 const showEdit  = ref(false)
 const editTarget = ref(null)
 const editForm  = reactive({
-  title: '', description: '', timeLimitMinutes: null, maxAttempts: 1, passScore: 60, webhookUrl: ''
+  title: '', description: '', timeLimitMinutes: null, maxAttempts: 1, passScore: 60, webhookUrl: '', questionsPerAttempt: null
 })
 const editSaving = ref(false)
 
@@ -752,7 +766,7 @@ async function createExam() {
   try {
     await mandatoryExamApi.create({ ...form })
     showCreate.value = false
-    form.title = ''; form.description = ''; form.timeLimitMinutes = null; form.maxAttempts = 1; form.passScore = 60
+    form.title = ''; form.description = ''; form.timeLimitMinutes = null; form.maxAttempts = 1; form.passScore = 60; form.questionsPerAttempt = null
     await load()
   } catch (e) {
     alert(e?.response?.data?.message ?? 'Gagal membuat ujian.')
@@ -769,6 +783,7 @@ function openEdit(exam) {
   editForm.maxAttempts       = exam.maxAttempts
   editForm.passScore         = exam.passScore
   editForm.webhookUrl        = exam.webhookUrl ?? ''
+  editForm.questionsPerAttempt = exam.questionsPerAttempt ?? null
   showEdit.value             = true
 }
 
@@ -786,6 +801,7 @@ async function saveEdit() {
       exam.maxAttempts      = editForm.maxAttempts
       exam.passScore        = editForm.passScore
       exam.webhookUrl       = editForm.webhookUrl || null
+      exam.questionsPerAttempt = editForm.questionsPerAttempt || null
     }
     // Update juga selected (detail drawer) jika sedang terbuka
     if (selected.value?.id === editTarget.value.id) {
@@ -795,6 +811,7 @@ async function saveEdit() {
       selected.value.maxAttempts      = editForm.maxAttempts
       selected.value.passScore        = editForm.passScore
       selected.value.webhookUrl       = editForm.webhookUrl || null
+      selected.value.questionsPerAttempt = editForm.questionsPerAttempt || null
     }
     showEdit.value = false
   } catch (e) {

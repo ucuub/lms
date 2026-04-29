@@ -7,7 +7,8 @@ public record CreateMandatoryExamRequest(
     string? Description,
     int? TimeLimitMinutes,
     int MaxAttempts,
-    int PassScore
+    int PassScore,
+    int? QuestionsPerAttempt = null
 );
 
 public record UpdateMandatoryExamRequest(
@@ -16,7 +17,8 @@ public record UpdateMandatoryExamRequest(
     int? TimeLimitMinutes,
     int MaxAttempts,
     int PassScore,
-    string? WebhookUrl
+    string? WebhookUrl,
+    int? QuestionsPerAttempt = null
 );
 
 public record AddMandatoryQuestionRequest(
@@ -66,7 +68,8 @@ public record MandatoryExamSummaryResponse(
     DateTime CreatedAt,
     string? PublicAccessCode,
     string? PublicLink,
-    string? WebhookUrl
+    string? WebhookUrl,
+    int? QuestionsPerAttempt = null
 );
 
 public record MandatoryExamDetailResponse(
@@ -80,7 +83,8 @@ public record MandatoryExamDetailResponse(
     string CreatedByName,
     DateTime CreatedAt,
     List<MandatoryQuestionResponse> Questions,
-    List<MandatoryAssignmentResponse> Assignments
+    List<MandatoryAssignmentResponse> Assignments,
+    int? QuestionsPerAttempt = null
 );
 
 public record MandatoryQuestionResponse(

@@ -24,6 +24,18 @@ static bool IsSqlServer(string s) => s.Contains("Server=", StringComparison.Ordi
                                   || s.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase)
                                   || s.Contains("Trusted_Connection=", StringComparison.OrdinalIgnoreCase);
 
+// Untuk SQLite dengan path relatif: simpan DB di folder project (3 level di atas bin/Debug/net8.0),
+// bukan di dalam bin — supaya tidak hilang saat dotnet clean/rebuild.
+if (IsSqlite(connStr))
+{
+    var dbPath = connStr["Data Source=".Length..].Trim();
+    if (!Path.IsPathRooted(dbPath))
+    {
+        var projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
+        connStr = $"Data Source={Path.Combine(projectDir, dbPath)}";
+    }
+}
+
 builder.Services.AddDbContext<LmsDbContext>(options =>
 {
     if      (IsSqlite(connStr))    options.UseSqlite(connStr);
@@ -318,6 +330,16 @@ app.MapControllers();
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='ParentSessionId') ALTER TABLE lms.MandatoryExamSessions ADD ParentSessionId INT NULL",
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='MaxUsageCount') ALTER TABLE lms.MandatoryExamSessions ADD MaxUsageCount INT NOT NULL DEFAULT 5",
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='CurrentUsageCount') ALTER TABLE lms.MandatoryExamSessions ADD CurrentUsageCount INT NOT NULL DEFAULT 0",
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExams') AND name='QuestionsPerAttempt') ALTER TABLE lms.MandatoryExams ADD QuestionsPerAttempt INT NULL",
+                @"IF OBJECT_ID('lms.MandatoryExamAttemptQuestions', 'U') IS NULL
+                  CREATE TABLE lms.MandatoryExamAttemptQuestions (
+                      Id INT IDENTITY(1,1) PRIMARY KEY,
+                      AttemptId INT NOT NULL,
+                      QuestionId INT NOT NULL,
+                      [Order] INT NOT NULL DEFAULT 0,
+                      CONSTRAINT FK_MandatoryAttemptQ_Attempt FOREIGN KEY (AttemptId) REFERENCES lms.MandatoryExamAttempts(Id),
+                      CONSTRAINT FK_MandatoryAttemptQ_Question FOREIGN KEY (QuestionId) REFERENCES lms.MandatoryExamQuestions(Id)
+                  )",
             };
             foreach (var sql in alterSqls)
             {
@@ -337,6 +359,15 @@ app.MapControllers();
         var sqliteAlters = new[]
         {
             "ALTER TABLE \"Quizzes\" ADD COLUMN \"ShowAnswers\" INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE \"MandatoryExams\" ADD COLUMN \"QuestionsPerAttempt\" INTEGER NULL",
+            @"CREATE TABLE IF NOT EXISTS ""MandatoryExamAttemptQuestions"" (
+                ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                ""AttemptId"" INTEGER NOT NULL,
+                ""QuestionId"" INTEGER NOT NULL,
+                ""Order"" INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (""AttemptId"") REFERENCES ""MandatoryExamAttempts""(""Id"") ON DELETE CASCADE,
+                FOREIGN KEY (""QuestionId"") REFERENCES ""MandatoryExamQuestions""(""Id"") ON DELETE RESTRICT
+            )",
         };
         foreach (var sql in sqliteAlters)
         {

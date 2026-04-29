@@ -161,36 +161,6 @@
         </div>
       </div>
 
-      <!-- Answer breakdown -->
-      <div class="space-y-3">
-        <h3 class="font-semibold text-gray-800 mb-2">Pembahasan Jawaban</h3>
-        <div v-for="(ans, idx) in result.answers" :key="ans.questionId"
-          class="bg-white rounded-xl border p-4"
-          :class="ans.questionType === 'Essay' ? 'border-yellow-200' :
-                  ans.isCorrect ? 'border-green-200' : 'border-red-200'">
-          <p class="text-sm font-medium text-gray-800 mb-2">{{ idx + 1 }}. {{ ans.questionText }}</p>
-
-          <div v-if="ans.questionType === 'Essay'" class="text-sm">
-            <p class="text-gray-500 text-xs mb-1">Jawaban Anda:</p>
-            <p class="text-gray-700 bg-gray-50 rounded p-2">{{ ans.essayAnswer || '(tidak dijawab)' }}</p>
-            <p v-if="ans.feedback" class="text-xs text-blue-600 mt-1">Feedback: {{ ans.feedback }}</p>
-            <p class="text-xs text-yellow-600 mt-1">Menunggu penilaian guru</p>
-          </div>
-          <div v-else class="text-sm space-y-1">
-            <div class="flex gap-2">
-              <span class="text-gray-500">Jawaban Anda:</span>
-              <span :class="ans.isCorrect ? 'text-green-600 font-medium' : 'text-red-500'">
-                {{ ans.selectedOptionText || '(tidak dijawab)' }}
-              </span>
-            </div>
-            <div v-if="!ans.isCorrect && ans.correctAnswer" class="flex gap-2">
-              <span class="text-gray-500">Jawaban benar:</span>
-              <span class="text-green-600 font-medium">{{ ans.correctAnswer }}</span>
-            </div>
-            <p class="text-xs text-gray-400">{{ ans.earnedPoints ?? 0 }} / {{ ans.points }} poin</p>
-          </div>
-        </div>
-      </div>
     </div>
 
   </div>

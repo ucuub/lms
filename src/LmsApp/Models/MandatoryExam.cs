@@ -9,6 +9,8 @@ public class MandatoryExam
     public int MaxAttempts { get; set; } = 1;
     public int PassScore { get; set; } = 60; // persen
     public bool IsActive { get; set; } = true;
+    /// <summary>Jumlah soal yang diacak per attempt. Null = tampilkan semua soal.</summary>
+    public int? QuestionsPerAttempt { get; set; }
     /// <summary>UUID untuk public link (satu link per exam, tanpa userId).
     /// Null = belum digenerate. DWI Mobile append userId saat membuka.</summary>
     public string? PublicAccessCode { get; set; }
@@ -88,6 +90,18 @@ public class MandatoryExamAnswer
     public bool? IsCorrect { get; set; }
     public int? EarnedPoints { get; set; }
     public string? Feedback { get; set; }
+
+    public MandatoryExamAttempt Attempt { get; set; } = null!;
+    public MandatoryExamQuestion Question { get; set; } = null!;
+}
+
+/// <summary>Soal-soal yang diacak dan di-assign ke attempt tertentu.</summary>
+public class MandatoryExamAttemptQuestion
+{
+    public int Id { get; set; }
+    public int AttemptId { get; set; }
+    public int QuestionId { get; set; }
+    public int Order { get; set; }
 
     public MandatoryExamAttempt Attempt { get; set; } = null!;
     public MandatoryExamQuestion Question { get; set; } = null!;

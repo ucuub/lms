@@ -93,6 +93,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<MandatoryExamAssignment> MandatoryExamAssignments => Set<MandatoryExamAssignment>();
     public DbSet<MandatoryExamAttempt> MandatoryExamAttempts => Set<MandatoryExamAttempt>();
     public DbSet<MandatoryExamAnswer> MandatoryExamAnswers => Set<MandatoryExamAnswer>();
+    public DbSet<MandatoryExamAttemptQuestion> MandatoryExamAttemptQuestions => Set<MandatoryExamAttemptQuestion>();
     public DbSet<MandatoryExamSession> MandatoryExamSessions => Set<MandatoryExamSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -641,6 +642,19 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasOne(ans => ans.Question)
                 .WithMany()
                 .HasForeignKey(ans => ans.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MandatoryExamAttemptQuestion>(e =>
+        {
+            e.HasKey(aq => aq.Id);
+            e.HasOne(aq => aq.Attempt)
+                .WithMany()
+                .HasForeignKey(aq => aq.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(aq => aq.Question)
+                .WithMany()
+                .HasForeignKey(aq => aq.QuestionId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
