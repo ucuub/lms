@@ -5,7 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LmsApp.Services;
 
-public class CompletionService(LmsDbContext db, INotificationService notifications) : ICompletionService
+public class CompletionService(
+    LmsDbContext db,
+    INotificationService notifications,
+    IWebhookService webhook) : ICompletionService
 {
     // ── Status ────────────────────────────────────────────────────────────────
 
@@ -148,6 +151,18 @@ public class CompletionService(LmsDbContext db, INotificationService notificatio
             NotificationType.Success,
             $"/certificates/{cert.CertificateNumber}"
         );
+
+        // Kirim webhook ke DWI Mobile (fire-and-forget, Moodle-style)
+        webhook.Fire("course_completed", new
+        {
+            userId,
+            userName,
+            courseId,
+            courseTitle       = course?.Title ?? string.Empty,
+            completedAt       = enrollment?.CompletedAt ?? DateTime.UtcNow,
+            certificateNumber = cert.CertificateNumber,
+            enrollmentId      = enrollment?.Id,
+        });
 
         return cert;
     }

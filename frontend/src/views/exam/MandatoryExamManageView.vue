@@ -591,25 +591,44 @@
           <!-- Tab: Generate Link -->
           <div v-if="activeTab === 'Generate Link'" class="p-5">
             <!-- Info box: integrasi DWI Mobile -->
-            <div class="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm">
-              <p class="font-semibold text-blue-800 mb-1">Integrasi Otomatis (DWI Mobile)</p>
-              <p class="text-blue-700 mb-2">
-                DWI Mobile dapat generate link secara otomatis tanpa intervensi admin. Berikan informasi berikut ke tim DWI Mobile:
-              </p>
-              <div class="space-y-1.5">
-                <div class="flex items-center gap-2">
-                  <span class="text-blue-600 font-medium w-24 shrink-0">Exam ID:</span>
-                  <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-blue-700">{{ selected?.id }}</code>
-                  <button @click="copyExamId(selected?.id)" class="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-2 py-0.5 rounded">Salin</button>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-blue-600 font-medium w-24 shrink-0">Endpoint:</span>
-                  <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-blue-700 text-xs break-all">POST /api/service/mandatory-exams/{{ selected?.id }}/generate-link</code>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-blue-600 font-medium w-24 shrink-0">Auth:</span>
-                  <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-blue-700">X-Api-Key: &lt;kunci dari admin server&gt;</code>
-                </div>
+            <div class="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm space-y-3">
+              <p class="font-semibold text-blue-800">Integrasi DWI Mobile — API Reference</p>
+
+              <!-- Auth -->
+              <div class="flex items-start gap-2">
+                <span class="text-blue-600 font-medium w-16 shrink-0 mt-0.5">Auth:</span>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-blue-700">X-Api-Key: &lt;kunci dari admin server&gt;</code>
+              </div>
+
+              <!-- Exam ID -->
+              <div class="flex items-center gap-2">
+                <span class="text-blue-600 font-medium w-16 shrink-0">Exam ID:</span>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-blue-700">{{ selected?.id }}</code>
+                <button @click="copyExamId(selected?.id)" class="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-2 py-0.5 rounded">Salin</button>
+              </div>
+
+              <hr class="border-blue-200" />
+
+              <!-- Endpoint 1: daftar ujian user -->
+              <div>
+                <p class="text-blue-700 font-medium text-xs mb-0.5">1. Daftar ujian user + status</p>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-blue-700 block break-all">GET /api/service/user/{'{USER_ID}'}/mandatory-exams</code>
+                <p class="text-xs text-blue-600 mt-0.5">Kembalikan semua ujian aktif + status setiap user (NotStarted / InProgress / Passed / Failed / Exhausted).</p>
+              </div>
+
+              <!-- Endpoint 2: start ujian langsung (native) -->
+              <div>
+                <p class="text-blue-700 font-medium text-xs mb-0.5">2. Mulai / resume ujian (native — tanpa web redirect)</p>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-blue-700 block break-all">POST /api/service/mandatory-exams/{{ selected?.id }}/start</code>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-gray-600 block break-all mt-1">Body: {"{"} "userId": "...", "userName": "..." {"}"}</code>
+                <p class="text-xs text-blue-600 mt-0.5">Kembalikan <b>examToken</b> + daftar soal langsung. DWI Mobile render ujian di dalam app sendiri, submit ke <code class="bg-blue-100 px-0.5 rounded">POST /api/mandatory-exams/submit</code> dengan header <code class="bg-blue-100 px-0.5 rounded">X-Exam-Token</code>.</p>
+              </div>
+
+              <!-- Endpoint 3: generate deep link (untuk web redirect) -->
+              <div>
+                <p class="text-blue-700 font-medium text-xs mb-0.5">3. Generate deep link (untuk redirect ke halaman web ujian)</p>
+                <code class="bg-white border border-blue-200 px-2 py-0.5 rounded font-mono text-xs text-blue-700 block break-all">POST /api/service/mandatory-exams/{{ selected?.id }}/generate-link</code>
+                <p class="text-xs text-blue-600 mt-0.5">Kembalikan <b>deepLink</b> yang dibuka di browser / WebView.</p>
               </div>
             </div>
 

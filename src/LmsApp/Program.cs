@@ -152,6 +152,7 @@ builder.Services.AddHostedService<AssignmentReminderService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
 builder.Services.AddScoped<ICompletionService, CompletionService>();
+builder.Services.AddScoped<IWebhookService, WebhookService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
