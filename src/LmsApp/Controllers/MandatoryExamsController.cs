@@ -1185,7 +1185,7 @@ public class MandatoryExamSessionController(
         if (isPassed)
         {
             // Load assignment untuk UserName
-            attempt.Assignment ??= await db.MandatoryExamAssignments.FindAsync(attempt.AssignmentId);
+            attempt.Assignment ??= (await db.MandatoryExamAssignments.FindAsync(attempt.AssignmentId))!;
             var cert = await certService.GenerateAsync(exam, attempt, pct);
             certNumber = cert?.CertificateNumber;
         }
