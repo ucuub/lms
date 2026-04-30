@@ -309,8 +309,8 @@
         <div class="flex-1 overflow-y-auto">
           <!-- Tabs -->
           <div class="flex border-b overflow-x-auto">
-            <button v-for="tab in ['Soal', 'Peserta', 'Hasil', 'Generate Link', 'Riwayat Link']" :key="tab"
-              @click="activeTab = tab; if (tab === 'Riwayat Link') loadSessions(); if (tab === 'Hasil') loadAttempts()"
+            <button v-for="tab in ['Soal', 'Peserta', 'Hasil', 'Sertifikat', 'Generate Link', 'Riwayat Link']" :key="tab"
+              @click="activeTab = tab; if (tab === 'Riwayat Link') loadSessions(); if (tab === 'Hasil') loadAttempts(); if (tab === 'Sertifikat') loadCertData()"
               :class="activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'"
               class="px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap">
               {{ tab }}
@@ -584,6 +584,66 @@
                   class="text-red-500 hover:text-red-700 shrink-0 border border-red-200 px-2 py-1 rounded hover:bg-red-50">
                   Cabut
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Sertifikat -->
+          <div v-if="activeTab === 'Sertifikat'" class="p-5 space-y-6">
+
+            <!-- Upload Template -->
+            <div class="border border-gray-200 rounded-xl p-4">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <p class="font-medium text-gray-800 text-sm">Template Sertifikat</p>
+                  <p class="text-xs text-gray-400 mt-0.5">Upload file .docx dari tim pelatihan. Gunakan placeholder berikut di dalam dokumen:</p>
+                </div>
+              </div>
+
+              <!-- Placeholder reference -->
+              <div class="bg-gray-50 rounded-lg p-3 mb-4 text-xs font-mono space-y-1">
+                <div class="flex gap-3"><span class="text-blue-600 w-44">{'{{NAMA_PESERTA}}'}</span><span class="text-gray-500">— Nama lengkap peserta</span></div>
+                <div class="flex gap-3"><span class="text-blue-600 w-44">{'{{JUDUL_UJIAN}}'}</span><span class="text-gray-500">— Judul ujian</span></div>
+                <div class="flex gap-3"><span class="text-blue-600 w-44">{'{{TANGGAL_LULUS}}'}</span><span class="text-gray-500">— Tanggal kelulusan (contoh: 30 April 2025)</span></div>
+                <div class="flex gap-3"><span class="text-blue-600 w-44">{'{{NOMOR_SERTIFIKAT}}'}</span><span class="text-gray-500">— Nomor unik sertifikat</span></div>
+                <div class="flex gap-3"><span class="text-blue-600 w-44">{'{{NILAI}}'}</span><span class="text-gray-500">— Nilai persentase (contoh: 85%)</span></div>
+              </div>
+
+              <!-- Current template state -->
+              <div v-if="certTemplate" class="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3">
+                <div class="flex items-center gap-2 text-sm text-green-800">
+                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <span class="font-medium">{{ certTemplate.fileName }}</span>
+                  <span class="text-green-600 text-xs">· diupload {{ formatDate(certTemplate.uploadedAt) }}</span>
+                </div>
+                <button @click="deleteCertTemplate" class="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2 py-0.5 rounded">Hapus</button>
+              </div>
+              <div v-else class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                Belum ada template — sertifikat tidak akan digenerate saat peserta lulus.
+              </div>
+
+              <!-- Upload button -->
+              <label class="inline-flex items-center gap-2 cursor-pointer px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                {{ certTemplate ? 'Ganti Template' : 'Upload Template .docx' }}
+                <input type="file" accept=".docx" class="hidden" @change="uploadCertTemplate" />
+              </label>
+            </div>
+
+            <!-- Issued certificates -->
+            <div class="border border-gray-200 rounded-xl p-4">
+              <p class="font-medium text-gray-800 text-sm mb-3">Sertifikat Terbit ({{ issuedCerts.length }})</p>
+              <div v-if="issuedCerts.length === 0" class="text-sm text-gray-400 text-center py-4">
+                Belum ada sertifikat yang diterbitkan.
+              </div>
+              <div v-else class="space-y-2">
+                <div v-for="cert in issuedCerts" :key="cert.id"
+                  class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                  <div>
+                    <p class="font-medium text-gray-800">{{ cert.userName }}</p>
+                    <p class="text-xs text-gray-400">{{ cert.certificateNumber }} · {{ cert.scorePercentage }}% · {{ formatDate(cert.issuedAt) }}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -902,6 +962,49 @@ async function loadSessions() {
     sessions.value = data
   } finally {
     sessionsLoading.value = false
+  }
+}
+
+// ── Sertifikat ────────────────────────────────────────────────────────────────
+
+const certTemplate  = ref(null)
+const issuedCerts   = ref([])
+const certUploading = ref(false)
+
+async function loadCertData() {
+  if (!selected.value) return
+  try {
+    const [tmpl, certs] = await Promise.all([
+      mandatoryExamApi.getCertTemplate(selected.value.id),
+      mandatoryExamApi.getIssuedCerts(selected.value.id),
+    ])
+    certTemplate.value = tmpl.data.exists ? tmpl.data : null
+    issuedCerts.value  = certs.data
+  } catch { /* ignore */ }
+}
+
+async function uploadCertTemplate(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  certUploading.value = true
+  try {
+    await mandatoryExamApi.uploadCertTemplate(selected.value.id, file)
+    await loadCertData()
+  } catch {
+    alert('Gagal upload template.')
+  } finally {
+    certUploading.value = false
+    e.target.value = ''
+  }
+}
+
+async function deleteCertTemplate() {
+  if (!confirm('Hapus template sertifikat? Sertifikat yang sudah terbit tidak terpengaruh.')) return
+  try {
+    await mandatoryExamApi.deleteCertTemplate(selected.value.id)
+    certTemplate.value = null
+  } catch {
+    alert('Gagal menghapus template.')
   }
 }
 

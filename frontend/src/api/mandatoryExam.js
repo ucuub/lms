@@ -28,6 +28,17 @@ export const mandatoryExamApi = {
   gradeEssay:          (attemptId, answerId, data) => api.patch(`/mandatory-exams/attempts/${attemptId}/answers/${answerId}/grade`, data),
   importQuestions:     (id, data)  => api.post(`/mandatory-exams/${id}/import-questions`, data),
   exportResults:       (id)        => api.get(`/mandatory-exams/${id}/export`, { responseType: 'blob' }),
+
+  uploadCertTemplate:  (id, file)  => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post(`/mandatory-exams/${id}/certificate-template`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  getCertTemplate:     (id)        => api.get(`/mandatory-exams/${id}/certificate-template`),
+  deleteCertTemplate:  (id)        => api.delete(`/mandatory-exams/${id}/certificate-template`),
+  getIssuedCerts:      (id)        => api.get(`/mandatory-exams/${id}/certificates`),
 }
 
 // ── Session (authenticated by X-Exam-Token — no Keycloak needed) ─────────────
@@ -49,5 +60,11 @@ export const mandatoryExamSession = {
   getResult: (attemptId, examToken) =>
     axios.get(`/api/mandatory-exam-attempts/${attemptId}/result`, {
       headers: { 'X-Exam-Token': examToken },
+    }),
+
+  downloadCertificate: (certNumber, examToken) =>
+    axios.get(`/api/mandatory-exams/certificates/${certNumber}/download`, {
+      headers: { 'X-Exam-Token': examToken },
+      responseType: 'blob',
     }),
 }

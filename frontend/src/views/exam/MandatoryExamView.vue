@@ -149,6 +149,18 @@
           Ada soal essay yang menunggu penilaian guru. Skor akhir mungkin berubah setelah dinilai.
         </div>
 
+        <!-- Download Sertifikat -->
+        <div v-if="result.isPassed && result.certificateNumber" class="mt-5">
+          <button @click="downloadCertificate"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Download Sertifikat
+          </button>
+          <p class="text-xs text-gray-400 mt-1.5">No. {{ result.certificateNumber }}</p>
+        </div>
+
         <!-- Retry button -->
         <div v-if="!result.isPassed && result.remainingAttempts > 0" class="mt-4">
           <button @click="retryExam"
@@ -309,6 +321,20 @@ async function initExam(data) {
   }
 
   state.value = 'exam'
+}
+
+async function downloadCertificate() {
+  try {
+    const res = await mandatoryExamSession.downloadCertificate(result.value.certificateNumber, examToken.value)
+    const url = URL.createObjectURL(res.data)
+    const a   = document.createElement('a')
+    a.href     = url
+    a.download = `Sertifikat_${result.value.examTitle.replace(/\s+/g, '_')}_${result.value.certificateNumber}.docx`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    alert('Gagal mengunduh sertifikat. Coba lagi nanti.')
+  }
 }
 
 async function retryExam() {

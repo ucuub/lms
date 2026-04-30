@@ -19,7 +19,8 @@ namespace LmsApp.Controllers;
 public class MandatoryExamsController(
     LmsDbContext db,
     MandatoryExamTokenService tokenService,
-    IConfiguration config) : ControllerBase
+    IConfiguration config,
+    IMandatoryExamCertificateService certService) : ControllerBase
 {
     private string UserId   => User.FindFirst("sub")?.Value  ?? string.Empty;
     private string UserName => User.FindFirst("name")?.Value ?? string.Empty;
@@ -671,6 +672,82 @@ public class MandatoryExamsController(
         return Ok(new { score = attempt.Score, percentage = pct, isPassed = attempt.IsPassed });
     }
 
+    // ── Certificate Template ──────────────────────────────────────────────────
+
+    // POST /api/mandatory-exams/{id}/certificate-template
+    [HttpPost("{id:int}/certificate-template")]
+    [Authorize(Roles = "teacher,admin")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadCertificateTemplate(int id, IFormFile file)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "File tidak boleh kosong." });
+        if (!file.FileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Hanya file .docx yang diizinkan." });
+
+        var template = await certService.UploadTemplateAsync(id, file, UserId);
+        return Ok(new { template.Id, template.FileName, template.UploadedAt, template.UploadedBy });
+    }
+
+    // GET /api/mandatory-exams/{id}/certificate-template
+    [HttpGet("{id:int}/certificate-template")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> GetCertificateTemplate(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var template = await certService.GetTemplateInfoAsync(id);
+        if (template == null) return Ok(new { exists = false });
+
+        return Ok(new
+        {
+            exists      = true,
+            template.Id,
+            template.FileName,
+            template.UploadedAt,
+            template.UploadedBy,
+        });
+    }
+
+    // DELETE /api/mandatory-exams/{id}/certificate-template
+    [HttpDelete("{id:int}/certificate-template")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> DeleteCertificateTemplate(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        await certService.DeleteTemplateAsync(id);
+        return Ok(new { message = "Template sertifikat berhasil dihapus." });
+    }
+
+    // GET /api/mandatory-exams/{id}/certificates
+    [HttpGet("{id:int}/certificates")]
+    [Authorize(Roles = "teacher,admin")]
+    public async Task<IActionResult> GetIssuedCertificates(int id)
+    {
+        var exam = await db.MandatoryExams.FindAsync(id);
+        if (exam == null) return NotFound();
+        if (!IsAdmin && exam.CreatedBy != UserId) return Forbid();
+
+        var certs = await certService.GetIssuedAsync(id);
+        return Ok(certs.Select(c => new
+        {
+            c.Id,
+            c.UserId,
+            c.UserName,
+            c.CertificateNumber,
+            c.ScorePercentage,
+            c.IssuedAt,
+        }));
+    }
+
     // ── Sessions ──────────────────────────────────────────────────────────────
 
     // GET /api/mandatory-exams/{id}/sessions
@@ -809,6 +886,7 @@ public class MandatoryExamSessionController(
     LmsDbContext db,
     MandatoryExamTokenService tokenService,
     IHttpClientFactory httpClientFactory,
+    IMandatoryExamCertificateService certService,
     ILogger<MandatoryExamSessionController> logger) : ControllerBase
 {
     // ── Access by Public Code → start or resume attempt ──────────────────────
@@ -1102,11 +1180,21 @@ public class MandatoryExamSessionController(
             .CountAsync(a => a.AssignmentId == assignment.Id && a.SubmittedAt != null);
         var remaining = Math.Max(0, exam.MaxAttempts - totalSubmitted);
 
+        // Generate sertifikat jika lulus dan template tersedia
+        string? certNumber = null;
+        if (isPassed)
+        {
+            // Load assignment untuk UserName
+            attempt.Assignment ??= await db.MandatoryExamAssignments.FindAsync(attempt.AssignmentId);
+            var cert = await certService.GenerateAsync(exam, attempt, pct);
+            certNumber = cert?.CertificateNumber;
+        }
+
         // Fire webhook (fire-and-forget — jangan blokir response user)
         if (!string.IsNullOrWhiteSpace(exam.WebhookUrl))
-            _ = FireWebhookAsync(exam, attempt, pct, isPassed);
+            _ = FireWebhookAsync(exam, attempt, pct, isPassed, certNumber);
 
-        return Ok(BuildResult(attempt, exam, answers, remaining));
+        return Ok(BuildResult(attempt, exam, answers, remaining, certNumber));
     }
 
     // ── Result ────────────────────────────────────────────────────────────────
@@ -1140,7 +1228,7 @@ public class MandatoryExamSessionController(
 
     // ── Webhook ───────────────────────────────────────────────────────────────
 
-    private async Task FireWebhookAsync(MandatoryExam exam, MandatoryExamAttempt attempt, int pct, bool isPassed)
+    private async Task FireWebhookAsync(MandatoryExam exam, MandatoryExamAttempt attempt, int pct, bool isPassed, string? certNumber = null)
     {
         try
         {
@@ -1149,15 +1237,16 @@ public class MandatoryExamSessionController(
 
             var payload = new
             {
-                @event      = "exam_submitted",
-                examId      = exam.Id,
-                examTitle   = exam.Title,
-                userId      = attempt.UserId,
-                score       = attempt.Score ?? 0,
-                maxScore    = attempt.MaxScore ?? 0,
-                percentage  = pct,
+                @event            = "exam_submitted",
+                examId            = exam.Id,
+                examTitle         = exam.Title,
+                userId            = attempt.UserId,
+                score             = attempt.Score ?? 0,
+                maxScore          = attempt.MaxScore ?? 0,
+                percentage        = pct,
                 isPassed,
-                submittedAt = attempt.SubmittedAt?.ToString("o"),
+                certificateNumber = certNumber,
+                submittedAt       = attempt.SubmittedAt?.ToString("o"),
             };
 
             using var content = new System.Net.Http.StringContent(
@@ -1202,7 +1291,8 @@ public class MandatoryExamSessionController(
 
     private static MandatoryExamResultResponse BuildResult(
         MandatoryExamAttempt attempt, MandatoryExam exam,
-        List<MandatoryExamAnswer> answers, int remainingAttempts = 0)
+        List<MandatoryExamAnswer> answers, int remainingAttempts = 0,
+        string? certificateNumber = null)
     {
         var pct = attempt.MaxScore > 0
             ? (int)Math.Round((double)(attempt.Score ?? 0) / (attempt.MaxScore ?? 1) * 100)
@@ -1228,6 +1318,44 @@ public class MandatoryExamSessionController(
             exam.MaxAttempts, remainingAttempts,
             DateTime.SpecifyKind(attempt.StartedAt, DateTimeKind.Utc),
             DateTime.SpecifyKind(attempt.SubmittedAt!.Value, DateTimeKind.Utc),
-            answerResults);
+            answerResults,
+            certificateNumber);
+    }
+
+    // ── Download Sertifikat ───────────────────────────────────────────────────
+
+    // GET /api/mandatory-exams/certificates/{certNumber}/download
+    // Auth: X-Exam-Token header ATAU query param userId (untuk DWI Mobile)
+    [HttpGet("mandatory-exams/certificates/{certNumber}/download")]
+    public async Task<IActionResult> DownloadCertificate(
+        string certNumber,
+        [FromHeader(Name = "X-Exam-Token")] string? examToken,
+        [FromQuery] string? userId)
+    {
+        // Tentukan userId dari token atau query param
+        string resolvedUserId;
+
+        if (!string.IsNullOrWhiteSpace(examToken))
+        {
+            var (uid, _, _) = ValidateSessionToken(examToken, out var err);
+            if (err != null) return err;
+            resolvedUserId = uid;
+        }
+        else if (!string.IsNullOrWhiteSpace(userId))
+        {
+            resolvedUserId = userId;
+        }
+        else
+        {
+            return Unauthorized(new { message = "X-Exam-Token atau userId diperlukan." });
+        }
+
+        var result = await certService.DownloadAsync(certNumber, resolvedUserId);
+        if (result == null) return NotFound(new { message = "Sertifikat tidak ditemukan." });
+
+        var (data, fileName) = result.Value;
+        return File(data,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            fileName);
     }
 }

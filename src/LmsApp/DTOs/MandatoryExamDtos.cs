@@ -174,7 +174,8 @@ public record MandatoryExamResultResponse(
     int RemainingAttempts,
     DateTime StartedAt,
     DateTime SubmittedAt,
-    List<MandatoryAnswerResultResponse> Answers
+    List<MandatoryAnswerResultResponse> Answers,
+    string? CertificateNumber = null  // diisi jika lulus dan template tersedia
 );
 
 public record MandatoryAnswerResultResponse(

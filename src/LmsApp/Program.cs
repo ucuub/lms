@@ -153,6 +153,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
 builder.Services.AddScoped<ICompletionService, CompletionService>();
 builder.Services.AddScoped<IWebhookService, WebhookService>();
+builder.Services.AddScoped<IMandatoryExamCertificateService, MandatoryExamCertificateService>();
 builder.Services.AddScoped<IGradebookService, GradebookService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IPracticeQuizService, PracticeQuizService>();
@@ -346,6 +347,32 @@ app.MapHealthChecks("/health");
                       CONSTRAINT FK_MandatoryAttemptQ_Attempt FOREIGN KEY (AttemptId) REFERENCES lms.MandatoryExamAttempts(Id),
                       CONSTRAINT FK_MandatoryAttemptQ_Question FOREIGN KEY (QuestionId) REFERENCES lms.MandatoryExamQuestions(Id)
                   )",
+                @"IF OBJECT_ID('lms.MandatoryExamCertificateTemplates', 'U') IS NULL
+                  CREATE TABLE lms.MandatoryExamCertificateTemplates (
+                      Id INT IDENTITY(1,1) PRIMARY KEY,
+                      ExamId INT NOT NULL,
+                      FileName NVARCHAR(255) NOT NULL,
+                      StoredPath NVARCHAR(500) NOT NULL,
+                      UploadedBy NVARCHAR(100) NOT NULL,
+                      UploadedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                      CONSTRAINT FK_MandatoryExamCertTemplate_Exam FOREIGN KEY (ExamId) REFERENCES lms.MandatoryExams(Id)
+                  )",
+                @"IF OBJECT_ID('lms.MandatoryExamCertificates', 'U') IS NULL
+                  CREATE TABLE lms.MandatoryExamCertificates (
+                      Id INT IDENTITY(1,1) PRIMARY KEY,
+                      ExamId INT NOT NULL,
+                      AttemptId INT NOT NULL,
+                      UserId NVARCHAR(100) NOT NULL,
+                      UserName NVARCHAR(200) NOT NULL,
+                      CertificateNumber NVARCHAR(50) NOT NULL,
+                      StoredPath NVARCHAR(500) NOT NULL,
+                      ScorePercentage INT NOT NULL DEFAULT 0,
+                      IssuedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                      CONSTRAINT FK_MandatoryExamCert_Exam FOREIGN KEY (ExamId) REFERENCES lms.MandatoryExams(Id),
+                      CONSTRAINT FK_MandatoryExamCert_Attempt FOREIGN KEY (AttemptId) REFERENCES lms.MandatoryExamAttempts(Id)
+                  )",
+                @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_MandatoryExamCertificates_CertNumber')
+                  CREATE UNIQUE INDEX IX_MandatoryExamCertificates_CertNumber ON lms.MandatoryExamCertificates(CertificateNumber)",
             };
             foreach (var sql in alterSqls)
             {
@@ -373,6 +400,28 @@ app.MapHealthChecks("/health");
                 ""Order"" INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY (""AttemptId"") REFERENCES ""MandatoryExamAttempts""(""Id"") ON DELETE CASCADE,
                 FOREIGN KEY (""QuestionId"") REFERENCES ""MandatoryExamQuestions""(""Id"") ON DELETE RESTRICT
+            )",
+            @"CREATE TABLE IF NOT EXISTS ""MandatoryExamCertificateTemplates"" (
+                ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                ""ExamId"" INTEGER NOT NULL,
+                ""FileName"" TEXT NOT NULL,
+                ""StoredPath"" TEXT NOT NULL,
+                ""UploadedBy"" TEXT NOT NULL,
+                ""UploadedAt"" TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (""ExamId"") REFERENCES ""MandatoryExams""(""Id"") ON DELETE CASCADE
+            )",
+            @"CREATE TABLE IF NOT EXISTS ""MandatoryExamCertificates"" (
+                ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                ""ExamId"" INTEGER NOT NULL,
+                ""AttemptId"" INTEGER NOT NULL,
+                ""UserId"" TEXT NOT NULL,
+                ""UserName"" TEXT NOT NULL,
+                ""CertificateNumber"" TEXT NOT NULL UNIQUE,
+                ""StoredPath"" TEXT NOT NULL,
+                ""ScorePercentage"" INTEGER NOT NULL DEFAULT 0,
+                ""IssuedAt"" TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (""ExamId"") REFERENCES ""MandatoryExams""(""Id"") ON DELETE CASCADE,
+                FOREIGN KEY (""AttemptId"") REFERENCES ""MandatoryExamAttempts""(""Id"") ON DELETE CASCADE
             )",
         };
         foreach (var sql in sqliteAlters)

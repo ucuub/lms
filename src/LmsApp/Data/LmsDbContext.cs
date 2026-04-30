@@ -95,6 +95,8 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<MandatoryExamAnswer> MandatoryExamAnswers => Set<MandatoryExamAnswer>();
     public DbSet<MandatoryExamAttemptQuestion> MandatoryExamAttemptQuestions => Set<MandatoryExamAttemptQuestion>();
     public DbSet<MandatoryExamSession> MandatoryExamSessions => Set<MandatoryExamSession>();
+    public DbSet<MandatoryExamCertificateTemplate> MandatoryExamCertificateTemplates => Set<MandatoryExamCertificateTemplate>();
+    public DbSet<MandatoryExamCertificate> MandatoryExamCertificates => Set<MandatoryExamCertificate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -665,6 +667,25 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             e.HasOne(s => s.Exam)
                 .WithMany()
                 .HasForeignKey(s => s.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamCertificateTemplate>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.HasOne(t => t.Exam)
+                .WithOne()
+                .HasForeignKey<MandatoryExamCertificateTemplate>(t => t.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MandatoryExamCertificate>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.HasIndex(c => c.CertificateNumber).IsUnique();
+            e.HasOne(c => c.Exam)
+                .WithMany()
+                .HasForeignKey(c => c.ExamId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

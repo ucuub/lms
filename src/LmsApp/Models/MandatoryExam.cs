@@ -107,6 +107,35 @@ public class MandatoryExamAttemptQuestion
     public MandatoryExamQuestion Question { get; set; } = null!;
 }
 
+/// <summary>Template sertifikat DOCX yang di-upload admin per ujian.</summary>
+public class MandatoryExamCertificateTemplate
+{
+    public int Id { get; set; }
+    public int ExamId { get; set; }
+    public string FileName { get; set; } = string.Empty;   // nama file asli
+    public string StoredPath { get; set; } = string.Empty; // path relatif di server
+    public string UploadedBy { get; set; } = string.Empty;
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    public MandatoryExam Exam { get; set; } = null!;
+}
+
+/// <summary>Sertifikat yang sudah digenerate setelah peserta lulus.</summary>
+public class MandatoryExamCertificate
+{
+    public int Id { get; set; }
+    public int ExamId { get; set; }
+    public int AttemptId { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string CertificateNumber { get; set; } = string.Empty;
+    public string StoredPath { get; set; } = string.Empty;
+    public int ScorePercentage { get; set; }
+    public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
+
+    public MandatoryExam Exam { get; set; } = null!;
+}
+
 /// <summary>
 /// Tracks every deep-link token that was generated.
 /// Allows revocation and audit trail without storing the full token string.
