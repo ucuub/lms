@@ -1,0 +1,41 @@
+stages:
+  - build
+  - test
+
+variables:
+  DOTNET_VERSION: "8.0"
+  NODE_VERSION: "20"
+
+# ── Backend Build ──────────────────────────────────────────────────────────────
+build:backend:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  script:
+    - dotnet restore src/LmsApp/LmsApp.csproj
+    - dotnet build src/LmsApp/LmsApp.csproj --configuration Release --no-restore
+    - dotnet publish src/LmsApp/LmsApp.csproj --configuration Release --no-build --output publish/backend
+  artifacts:
+    paths:
+      - publish/backend/
+    expire_in: 1 day
+  cache:
+    key: dotnet-$CI_COMMIT_REF_SLUG
+    paths:
+      - ~/.nuget/packages/
+
+# ── Frontend Build ─────────────────────────────────────────────────────────────
+build:frontend:
+  stage: build
+  image: node:20-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 day
+  cache:
+    key: node-$CI_COMMIT_REF_SLUG
+    paths:
+      - frontend/node_modules/

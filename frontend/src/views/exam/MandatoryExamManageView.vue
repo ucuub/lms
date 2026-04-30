@@ -142,6 +142,10 @@
               class="text-xs px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
               {{ exam.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
             </button>
+            <button @click="exportResults(exam)"
+              class="text-xs px-3 py-1.5 border border-green-200 text-green-600 rounded-lg hover:bg-green-50 transition-colors">
+              Export CSV
+            </button>
             <button @click="deleteExam(exam)"
               class="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
               Hapus
@@ -827,6 +831,20 @@ async function toggleActive(exam) {
     exam.isActive = !exam.isActive
   } catch (e) {
     alert(e?.response?.data?.message ?? 'Gagal mengubah status.')
+  }
+}
+
+async function exportResults(exam) {
+  try {
+    const res = await mandatoryExamApi.exportResults(exam.id)
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `hasil-ujian-${exam.title.replace(/\s+/g, '_')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('Gagal export hasil ujian.')
   }
 }
 

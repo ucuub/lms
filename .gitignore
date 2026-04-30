@@ -16,6 +16,9 @@ appsettings.Production.json
 *.env
 secrets.json
 
+## VS Code Local History
+.history/
+
 ## OS
 .DS_Store
 Thumbs.db

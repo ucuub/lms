@@ -9,10 +9,18 @@
         <h1 class="text-2xl font-bold mt-1">Bank Soal Kursus</h1>
         <p v-if="course" class="text-gray-500 text-sm">{{ course.title }}</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap">
         <button v-if="isAdmin" @click="showAiModal = true"
           class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
           ✨ Generate AI
+        </button>
+        <label class="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors cursor-pointer">
+          📥 Import CSV
+          <input type="file" accept=".csv" class="hidden" @change="handleCsvImport" />
+        </label>
+        <button @click="downloadTemplate"
+          class="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+          Template CSV
         </button>
         <button @click="openAddForm" class="btn-primary">+ Tambah Soal</button>
       </div>
@@ -411,6 +419,36 @@ async function doDelete() {
   } finally {
     deleting.value = false
   }
+}
+
+// ── Import CSV ────────────────────────────────────────────────────────────────
+
+async function handleCsvImport(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  event.target.value = '' // reset input supaya bisa upload file yang sama lagi
+  try {
+    const res = await courseQuestionBankApi.importCsv(courseId, file, filterModuleId.value > 0 ? filterModuleId.value : null)
+    alert(res.data.message)
+    await loadAll()
+  } catch (e) {
+    alert(e.response?.data?.message ?? 'Gagal mengimpor CSV.')
+  }
+}
+
+function downloadTemplate() {
+  const header = 'Teks Soal,Tipe,Poin,Opsi A,Opsi B,Opsi C,Opsi D,Jawaban Benar,Penjelasan'
+  const rows = [
+    '"Apa ibu kota Indonesia?",PG,10,"Jakarta","Bandung","Surabaya","Medan","A","Jakarta adalah ibu kota RI"',
+    '"Indonesia adalah negara kepulauan",BS,5,,,,,"A","Sesuai fakta geografis"',
+    '"Jelaskan pengertian fotosintesis",Uraian,20,,,,,,""',
+  ]
+  const csv = [header, ...rows].join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'template-soal.csv'; a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

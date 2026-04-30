@@ -8,7 +8,8 @@ public record StudentDashboardDto(
     StudentStatsDto Stats,
     IEnumerable<EnrolledCourseProgressDto> Courses,
     IEnumerable<UpcomingDeadlineDto> UpcomingDeadlines,
-    IEnumerable<RecentActivityDto> RecentActivities
+    IEnumerable<RecentActivityDto> RecentActivities,
+    StudentQuizStatsDto QuizStats
 );
 
 public record StudentStatsDto(
@@ -16,6 +17,13 @@ public record StudentStatsDto(
     int TotalCompleted,
     int TotalCertificates,
     int TotalSubmissions
+);
+
+public record StudentQuizStatsDto(
+    int TotalAttempts,
+    double AvgScore,      // rata-rata persentase
+    int PassedCount,
+    int FailedCount
 );
 
 public record EnrolledCourseProgressDto(
@@ -59,8 +67,11 @@ public record TeacherDashboardDto(
     TeacherStatsDto Stats,
     IEnumerable<CourseAnalyticsDto> Courses,
     IEnumerable<PendingGradingDto> PendingGrading,
-    IEnumerable<RecentSubmissionDto> RecentSubmissions
+    IEnumerable<RecentSubmissionDto> RecentSubmissions,
+    IEnumerable<MonthlyEnrollmentDto> EnrollmentTrend
 );
+
+public record MonthlyEnrollmentDto(string Month, int Count);
 
 public record TeacherStatsDto(
     int TotalCourses,
@@ -79,7 +90,9 @@ public record CourseAnalyticsDto(
     int PendingGradingCount,
     double AverageRating,
     int ReviewCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    double AvgQuizScore,    // rata-rata skor quiz peserta (%)
+    int TotalQuizAttempts
 );
 
 public record PendingGradingDto(

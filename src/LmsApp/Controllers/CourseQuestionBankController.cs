@@ -200,6 +200,154 @@ public class CourseQuestionBankController(LmsDbContext db) : ControllerBase
         return Ok(ToResponse(result));
     }
 
+    // ── POST /api/courses/{courseId}/question-bank/import-csv ────────────────────
+    // Format CSV:
+    //   Teks Soal,Tipe,Poin,Opsi A,Opsi B,Opsi C,Opsi D,Jawaban Benar,Penjelasan
+    //   Tipe: PG | BS | Uraian
+    //   Jawaban Benar: A/B/C/D (untuk PG), A (Benar) / B (Salah) untuk BS
+
+    [HttpPost("import-csv")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ImportCsv(int courseId, IFormFile file, [FromQuery] int? moduleId)
+    {
+        var (ok, err) = await AuthorizeManageAsync(courseId);
+        if (!ok) return err!;
+
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "File CSV diperlukan." });
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Hanya file .csv yang didukung." });
+
+        if (moduleId.HasValue)
+        {
+            var moduleExists = await db.CourseModules
+                .AnyAsync(m => m.Id == moduleId.Value && m.CourseId == courseId);
+            if (!moduleExists)
+                return BadRequest(new { message = "Modul tidak ditemukan." });
+        }
+
+        var imported = new List<CourseQuestionBank>();
+        var errors   = new List<string>();
+        int row = 1;
+
+        using var reader = new System.IO.StreamReader(file.OpenReadStream(), System.Text.Encoding.UTF8);
+        string? headerLine = await reader.ReadLineAsync(); // skip header
+        if (headerLine == null) return BadRequest(new { message = "File CSV kosong." });
+
+        string? line;
+        while ((line = await reader.ReadLineAsync()) != null)
+        {
+            row++;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var cols = ParseCsvLine(line);
+            if (cols.Length < 3)
+            {
+                errors.Add($"Baris {row}: kolom tidak cukup.");
+                continue;
+            }
+
+            var text        = cols[0].Trim();
+            var tipeRaw     = cols[1].Trim().ToUpperInvariant();
+            var pointsRaw   = cols[2].Trim();
+            var opsiA       = cols.Length > 3 ? cols[3].Trim() : "";
+            var opsiB       = cols.Length > 4 ? cols[4].Trim() : "";
+            var opsiC       = cols.Length > 5 ? cols[5].Trim() : "";
+            var opsiD       = cols.Length > 6 ? cols[6].Trim() : "";
+            var jawabanRaw  = cols.Length > 7 ? cols[7].Trim().ToUpperInvariant() : "";
+            var penjelasan  = cols.Length > 8 ? cols[8].Trim() : "";
+
+            if (string.IsNullOrEmpty(text)) { errors.Add($"Baris {row}: teks soal kosong."); continue; }
+            if (!int.TryParse(pointsRaw, out var points) || points < 1) points = 10;
+
+            QuestionType qType;
+            if      (tipeRaw == "PG")     qType = QuestionType.MultipleChoice;
+            else if (tipeRaw == "BS")     qType = QuestionType.TrueFalse;
+            else if (tipeRaw == "URAIAN") qType = QuestionType.Essay;
+            else { errors.Add($"Baris {row}: tipe '{cols[1]}' tidak valid (PG/BS/Uraian)."); continue; }
+
+            var options = new List<CourseQuestionBankOption>();
+
+            if (qType == QuestionType.MultipleChoice)
+            {
+                var rawOptions = new[] { ("A", opsiA), ("B", opsiB), ("C", opsiC), ("D", opsiD) }
+                    .Where(o => !string.IsNullOrEmpty(o.Item2)).ToList();
+
+                if (rawOptions.Count < 2) { errors.Add($"Baris {row}: minimal 2 opsi untuk PG."); continue; }
+
+                var correctLetters = jawabanRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(x => x.Trim()).ToHashSet();
+                if (correctLetters.Count == 0) { errors.Add($"Baris {row}: jawaban benar kosong."); continue; }
+
+                options = rawOptions.Select(o => new CourseQuestionBankOption
+                {
+                    Text      = o.Item2,
+                    IsCorrect = correctLetters.Contains(o.Item1)
+                }).ToList();
+
+                if (!options.Any(o => o.IsCorrect)) { errors.Add($"Baris {row}: tidak ada jawaban yang benar."); continue; }
+            }
+            else if (qType == QuestionType.TrueFalse)
+            {
+                var benarIsCorrect = jawabanRaw == "A";
+                options =
+                [
+                    new CourseQuestionBankOption { Text = "Benar", IsCorrect = benarIsCorrect },
+                    new CourseQuestionBankOption { Text = "Salah", IsCorrect = !benarIsCorrect },
+                ];
+            }
+
+            imported.Add(new CourseQuestionBank
+            {
+                CourseId      = courseId,
+                ModuleId      = moduleId,
+                Text          = text,
+                Type          = qType,
+                Points        = points,
+                Explanation   = string.IsNullOrEmpty(penjelasan) ? null : penjelasan,
+                CreatedBy     = UserId,
+                CreatedByName = UserName,
+                CreatedAt     = DateTime.UtcNow,
+                Options       = options
+            });
+        }
+
+        if (imported.Count == 0)
+            return BadRequest(new { message = "Tidak ada soal valid yang bisa diimpor.", errors });
+
+        db.CourseQuestionBanks.AddRange(imported);
+        await db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            imported = imported.Count,
+            errors,
+            message = $"{imported.Count} soal berhasil diimpor." + (errors.Count > 0 ? $" {errors.Count} baris dilewati." : "")
+        });
+    }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        var result = new List<string>();
+        bool inQuotes = false;
+        var current = new System.Text.StringBuilder();
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                { current.Append('"'); i++; }
+                else inQuotes = !inQuotes;
+            }
+            else if (c == ',' && !inQuotes)
+            { result.Add(current.ToString()); current.Clear(); }
+            else current.Append(c);
+        }
+        result.Add(current.ToString());
+        return result.ToArray();
+    }
+
     // ── DELETE /api/courses/{courseId}/question-bank/{id} ─────────────────────
 
     [HttpDelete("{id:int}")]

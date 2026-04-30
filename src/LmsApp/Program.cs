@@ -226,6 +226,9 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// ── Health Checks ─────────────────────────────────────────────────────────────
+builder.Services.AddHealthChecks();
+
 // ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
@@ -287,6 +290,7 @@ if (app.Environment.IsDevelopment())
     app.UseMiddleware<MockAuthMiddleware>(); // bypass JWT pakai X-Mock-User-Id header
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 // ── Auto-create schema + seed data on startup ─────────────────────────────────
 {

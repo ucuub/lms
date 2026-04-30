@@ -78,7 +78,19 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             );
         }).ToList();
 
-        return new StudentDashboardDto(stats, courses, upcomingDeadlines, recentActivities);
+        // 8. Quiz stats
+        var quizAttempts = await db.QuizAttempts
+            .Where(a => a.UserId == userId && a.SubmittedAt != null && a.MaxScore > 0)
+            .ToListAsync();
+        var quizStats = new StudentQuizStatsDto(
+            TotalAttempts: quizAttempts.Count,
+            AvgScore: quizAttempts.Count == 0 ? 0
+                : Math.Round(quizAttempts.Average(a => (double)a.Score / a.MaxScore * 100), 1),
+            PassedCount: quizAttempts.Count(a => a.IsPassed),
+            FailedCount: quizAttempts.Count(a => !a.IsPassed)
+        );
+
+        return new StudentDashboardDto(stats, courses, upcomingDeadlines, recentActivities, quizStats);
     }
 
     // ── Teacher ───────────────────────────────────────────────────────────────
@@ -94,7 +106,7 @@ public class DashboardService(LmsDbContext db) : IDashboardService
         if (courseIds.Count == 0)
         {
             var emptyStats = new TeacherStatsDto(0, 0, 0, 0);
-            return new TeacherDashboardDto(emptyStats, [], [], []);
+            return new TeacherDashboardDto(emptyStats, [], [], [], []);
         }
 
         // 2. Enrollment counts per course
@@ -130,7 +142,24 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             .Select(g => new { CourseId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.CourseId);
 
-        // 5. Course list with analytics
+        // 5. Quiz attempt stats per course
+        var quizIds = await db.Quizzes
+            .Where(q => courseIds.Contains(q.CourseId))
+            .Select(q => new { q.Id, q.CourseId })
+            .ToListAsync();
+        var quizIdMap = quizIds.ToDictionary(q => q.Id, q => q.CourseId);
+        var quizAttemptStats = await db.QuizAttempts
+            .Where(a => a.SubmittedAt != null && a.MaxScore > 0 && quizIdMap.Keys.Contains(a.QuizId))
+            .GroupBy(a => quizIdMap[a.QuizId])
+            .Select(g => new
+            {
+                CourseId    = g.Key,
+                AvgScore    = g.Average(a => (double)a.Score / a.MaxScore * 100),
+                TotalAttempts = g.Count()
+            })
+            .ToDictionaryAsync(x => x.CourseId);
+
+        // 6. Course list with analytics
         var courses = await db.Courses
             .Where(c => courseIds.Contains(c.Id))
             .OrderByDescending(c => c.CreatedAt)
@@ -142,6 +171,7 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             enrollmentStats.TryGetValue(c.Id, out var es);
             reviewStats.TryGetValue(c.Id, out var rs);
             pendingPerCourse.TryGetValue(c.Id, out var ps);
+            quizAttemptStats.TryGetValue(c.Id, out var qs);
 
             var total      = es?.Total     ?? 0;
             var completed  = es?.Completed ?? 0;
@@ -153,11 +183,13 @@ public class DashboardService(LmsDbContext db) : IDashboardService
                 ps?.Count ?? 0,
                 rs != null ? Math.Round(rs.Average, 1) : 0.0,
                 rs?.Count ?? 0,
-                c.CreatedAt
+                c.CreatedAt,
+                qs != null ? Math.Round(qs.AvgScore, 1) : 0.0,
+                qs?.TotalAttempts ?? 0
             );
         }).ToList();
 
-        // 6. Pending grading list (latest 20, sorted by oldest first so urgent on top)
+        // 7. Pending grading list (latest 20, sorted by oldest first so urgent on top)
         var pendingGrading = await db.Submissions
             .Include(s => s.Assignment).ThenInclude(a => a.Course)
             .Where(s => courseIds.Contains(s.Assignment.CourseId)
@@ -176,7 +208,7 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             ))
             .ToListAsync();
 
-        // 7. Recent submissions (latest 10, all statuses)
+        // 8. Recent submissions (latest 10, all statuses)
         var recentSubmissions = await db.Submissions
             .Include(s => s.Assignment).ThenInclude(a => a.Course)
             .Where(s => courseIds.Contains(s.Assignment.CourseId))
@@ -196,7 +228,7 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             ))
             .ToListAsync();
 
-        // 8. Stats
+        // 9. Stats
         var uniqueStudents     = enrollmentStats.Values.Sum(e => e.Total);
         var totalPending       = pendingPerCourse.Values.Sum(p => p.Count);
         var todayStart         = DateTime.UtcNow.Date;
@@ -212,7 +244,24 @@ public class DashboardService(LmsDbContext db) : IDashboardService
             TotalSubmissionsToday: submissionsToday
         );
 
-        return new TeacherDashboardDto(stats, analytics, pendingGrading, recentSubmissions);
+        // 10. Enrollment trend — last 6 months
+        var sixMonthsAgo = DateTime.UtcNow.AddMonths(-5);
+        var trendRaw = await db.Enrollments
+            .Where(e => courseIds.Contains(e.CourseId) && e.EnrolledAt >= sixMonthsAgo)
+            .GroupBy(e => new { e.EnrolledAt.Year, e.EnrolledAt.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+            .ToListAsync();
+
+        var trend = Enumerable.Range(0, 6)
+            .Select(i => DateTime.UtcNow.AddMonths(-5 + i))
+            .Select(d =>
+            {
+                var found = trendRaw.FirstOrDefault(r => r.Year == d.Year && r.Month == d.Month);
+                return new MonthlyEnrollmentDto(d.ToString("MMM yyyy"), found?.Count ?? 0);
+            })
+            .ToList();
+
+        return new TeacherDashboardDto(stats, analytics, pendingGrading, recentSubmissions, trend);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

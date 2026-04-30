@@ -111,6 +111,26 @@
         </div>
       </div>
 
+      <!-- Quiz Stats -->
+      <div v-if="dashboard?.quizStats?.totalAttempts > 0" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="card p-5 border-l-4 border-blue-400">
+          <p class="text-sm text-gray-500">Total Percobaan Quiz</p>
+          <p class="text-2xl font-bold text-blue-600 mt-1">{{ dashboard.quizStats.totalAttempts }}</p>
+        </div>
+        <div class="card p-5 border-l-4 border-green-400">
+          <p class="text-sm text-gray-500">Rata-rata Skor Quiz</p>
+          <p class="text-2xl font-bold text-green-600 mt-1">{{ dashboard.quizStats.avgScore }}%</p>
+        </div>
+        <div class="card p-5 border-l-4 border-emerald-400">
+          <p class="text-sm text-gray-500">Quiz Lulus</p>
+          <p class="text-2xl font-bold text-emerald-600 mt-1">{{ dashboard.quizStats.passedCount }}</p>
+        </div>
+        <div class="card p-5 border-l-4 border-red-400">
+          <p class="text-sm text-gray-500">Quiz Tidak Lulus</p>
+          <p class="text-2xl font-bold text-red-500 mt-1">{{ dashboard.quizStats.failedCount }}</p>
+        </div>
+      </div>
+
       <!-- Overall Progress Summary -->
       <div v-if="dashboard?.courses?.length" class="card p-6 mb-8">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Progres Keseluruhan</h2>
@@ -236,12 +256,27 @@
             <h3 class="font-semibold text-gray-900 line-clamp-2 flex-1">{{ c.title }}</h3>
             <span v-if="!c.isPublished" class="badge-yellow ml-2 shrink-0">Draft</span>
           </div>
-          <div class="flex gap-4 text-sm text-gray-500">
+          <div class="flex gap-3 text-sm text-gray-500 flex-wrap">
             <span>{{ c.enrollmentCount }} siswa</span>
             <span>{{ Math.round(c.completionRate) }}% selesai</span>
+            <span v-if="c.avgQuizScore > 0" class="text-blue-600">Quiz {{ c.avgQuizScore }}%</span>
             <span v-if="c.averageRating > 0">⭐ {{ c.averageRating.toFixed(1) }}</span>
           </div>
         </RouterLink>
+      </div>
+
+      <!-- Enrollment Trend -->
+      <div v-if="dashboard?.enrollmentTrend?.length" class="card p-6 mt-6">
+        <h2 class="font-semibold text-gray-900 mb-4">Tren Pendaftaran (6 Bulan Terakhir)</h2>
+        <div class="flex items-end gap-2 h-32">
+          <div v-for="m in dashboard.enrollmentTrend" :key="m.month"
+            class="flex-1 flex flex-col items-center gap-1">
+            <span class="text-xs font-semibold text-blue-600">{{ m.count }}</span>
+            <div class="w-full bg-blue-500 rounded-t transition-all"
+              :style="`height: ${maxTrend > 0 ? Math.max(4, m.count / maxTrend * 100) : 4}px`"></div>
+            <span class="text-xs text-gray-400 truncate w-full text-center">{{ m.month.split(' ')[0] }}</span>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -264,7 +299,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { dashboardApi } from '@/api/dashboard'
 import { quizzesApi } from '@/api/quizzes'
@@ -273,6 +308,10 @@ const auth = useAuthStore()
 const loading = ref(true)
 const dashboard = ref(null)
 const availableQuizzes = ref([])
+
+const maxTrend = computed(() =>
+  Math.max(...(dashboard.value?.enrollmentTrend?.map(m => m.count) ?? [0]))
+)
 
 onMounted(async () => {
   try {
