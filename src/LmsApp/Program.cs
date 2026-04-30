@@ -330,6 +330,7 @@ app.MapHealthChecks("/health");
             // Add new columns to existing tables (safe ALTER TABLE IF NOT EXISTS)
             var alterSqls = new[]
             {
+                "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.Quizzes') AND name='ShowAnswers') ALTER TABLE lms.Quizzes ADD ShowAnswers BIT NOT NULL DEFAULT 0",
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='IsLinkToken') ALTER TABLE lms.MandatoryExamSessions ADD IsLinkToken BIT NOT NULL DEFAULT 0",
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='ParentSessionId') ALTER TABLE lms.MandatoryExamSessions ADD ParentSessionId INT NULL",
                 "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('lms.MandatoryExamSessions') AND name='MaxUsageCount') ALTER TABLE lms.MandatoryExamSessions ADD MaxUsageCount INT NOT NULL DEFAULT 5",
